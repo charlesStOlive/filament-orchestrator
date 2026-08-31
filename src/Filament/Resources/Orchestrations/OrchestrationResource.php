@@ -2,6 +2,7 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Filament\Resources\Orchestrations;
 
+use CharlesStOlive\FilamentOrchestrator\Filament\Concerns\BelongsToConfiguredOrchestratorCluster;
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Orchestrations\Pages\CreateOrchestration;
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Orchestrations\Pages\EditOrchestration;
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Orchestrations\Pages\ListOrchestrations;
@@ -27,13 +28,15 @@ use Illuminate\Support\Str;
 
 class OrchestrationResource extends Resource
 {
+    use BelongsToConfiguredOrchestratorCluster;
+
     protected static ?string $model = Orchestration::class;
 
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-command-line';
 
-    protected static ?string $navigationLabel = 'Orchestrations';
+    protected static ?string $navigationLabel = 'Parcours interactifs';
 
     public static function form(Schema $schema): Schema
     {

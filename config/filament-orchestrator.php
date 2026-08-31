@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'cluster' => [
+        'enabled' => false,
+        'class' => null,
+    ],
+
     'tables' => [
         'orchestrations' => 'filament_orchestrator_orchestrations',
         'nodes' => 'filament_orchestrator_nodes',

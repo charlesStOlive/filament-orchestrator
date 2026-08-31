@@ -16,6 +16,15 @@ Une orchestration est composée de cinq concepts :
 Le schéma appartient à l’application. Le package fournit le moteur, les
 modèles génériques, le contenu de base et les écrans Filament.
 
+## Cluster Filament
+
+Les ressources ne sont pas regroupées par défaut. Une application peut les
+ranger dans son propre cluster :
+
+```php
+FilamentOrchestratorPlugin::make()->cluster(Voyage::class);
+```
+
 ```php
 return [
     'schemas' => [

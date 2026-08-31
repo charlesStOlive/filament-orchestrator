@@ -19,6 +19,14 @@ class FilamentOrchestratorPlugin implements Plugin
         return 'filament-orchestrator';
     }
 
+    public function cluster(?string $cluster): static
+    {
+        config()->set('filament-orchestrator.cluster.enabled', $cluster !== null);
+        config()->set('filament-orchestrator.cluster.class', $cluster);
+
+        return $this;
+    }
+
     public function register(Panel $panel): void
     {
         $resources = [];

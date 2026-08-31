@@ -2,6 +2,7 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Filament\Resources\Contents;
 
+use CharlesStOlive\FilamentOrchestrator\Filament\Concerns\BelongsToConfiguredOrchestratorCluster;
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Contents\Pages\CreateContent;
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Contents\Pages\EditContent;
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Contents\Pages\ListContents;
@@ -24,13 +25,15 @@ use Illuminate\Support\Str;
 
 class ContentResource extends Resource
 {
+    use BelongsToConfiguredOrchestratorCluster;
+
     protected static ?string $model = OrchestratorContent::class;
 
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-photo';
 
-    protected static ?string $navigationLabel = 'Contenus orchestrés';
+    protected static ?string $navigationLabel = 'Contenus narratifs';
 
     public static function form(Schema $schema): Schema
     {
