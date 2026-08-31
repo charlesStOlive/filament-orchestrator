@@ -38,6 +38,8 @@ class OrchestrationResource extends Resource
 
     protected static ?string $navigationLabel = 'Parcours interactifs';
 
+    protected static ?int $navigationSort = 1;
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
@@ -86,6 +88,16 @@ class OrchestrationResource extends Resource
 
     public static function getRelations(): array
     {
+        if (config('filament-orchestrator.node_management.layout', 'grouped') === 'tabs') {
+            $managers = collect(config('filament-orchestrator.node_management.roles', []))
+                ->pluck('manager')
+                ->filter(fn (mixed $manager): bool => is_string($manager) && is_subclass_of($manager, NodesRelationManager::class))
+                ->values()
+                ->all();
+
+            return [...$managers, TriggersRelationManager::class];
+        }
+
         return [NodesRelationManager::class, TriggersRelationManager::class];
     }
 

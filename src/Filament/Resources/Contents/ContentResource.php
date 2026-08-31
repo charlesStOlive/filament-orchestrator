@@ -43,7 +43,7 @@ class ContentResource extends Resource
                     ->label('Nom interne')
                     ->required()
                     ->live(onBlur: true)
-                    ->afterStateUpdated(fn (?string $state, callable $set) => $set('key', Str::slug($state ?? ''))),
+                    ->afterStateUpdated(fn(?string $state, callable $set) => $set('key', Str::slug($state ?? ''))),
                 TextInput::make('key')->label('Clé de bibliothèque')->unique(ignoreRecord: true),
                 TextInput::make('title')->label('Titre affiché')->columnSpanFull(),
                 Textarea::make('body')->label('Texte')->rows(8)->columnSpanFull(),

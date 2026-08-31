@@ -19,6 +19,11 @@ return [
         'contents' => true,
     ],
 
+    'node_management' => [
+        'layout' => 'grouped',
+        'roles' => [],
+    ],
+
     /*
      * The application owns its use cases. Each class listed here describes
      * the available node roles, events and actions for one orchestration type.

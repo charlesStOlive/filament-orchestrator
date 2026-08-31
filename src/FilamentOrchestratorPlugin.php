@@ -27,6 +27,13 @@ class FilamentOrchestratorPlugin implements Plugin
         return $this;
     }
 
+    public function nodeManagement(array $configuration): static
+    {
+        config()->set('filament-orchestrator.node_management', $configuration);
+
+        return $this;
+    }
+
     public function register(Panel $panel): void
     {
         $resources = [];
