@@ -1,0 +1,40 @@
+{
+    "name": "charlesstolive/filament-orchestrator",
+    "description": "A declarative interaction orchestrator for Filament applications",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "filament",
+        "orchestrator",
+        "interactions"
+    ],
+    "require": {
+        "php": "^8.3|^8.4",
+        "filament/filament": "^5.0",
+        "livewire/livewire": "^3.0|^4.0",
+        "spatie/laravel-package-tools": "^1.16"
+    },
+    "suggest": {
+        "charlesstolive/filament-map": "Adds the map point and layer action adapter"
+    },
+    "autoload": {
+        "psr-4": {
+            "CharlesStOlive\\FilamentOrchestrator\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "CharlesStOlive\\FilamentOrchestrator\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "CharlesStOlive\\FilamentOrchestrator\\FilamentOrchestratorServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

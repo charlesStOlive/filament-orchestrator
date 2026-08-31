@@ -1,0 +1,76 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create(config('filament-orchestrator.tables.experiences'), function (Blueprint $table): void {
+            $table->id();
+            $table->string('name');
+            $table->string('key')->unique();
+            $table->text('description')->nullable();
+            $table->string('map_id')->nullable()->index();
+            $table->string('event_scope')->nullable()->index();
+            $table->json('options')->nullable();
+            $table->boolean('is_active')->default(true)->index();
+            $table->timestamps();
+        });
+
+        Schema::create(config('filament-orchestrator.tables.contents'), function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('experience_id')->constrained(config('filament-orchestrator.tables.experiences'))->cascadeOnDelete();
+            $table->string('name');
+            $table->string('key');
+            $table->string('title')->nullable();
+            $table->longText('body')->nullable();
+            $table->json('images')->nullable();
+            $table->json('options')->nullable();
+            $table->boolean('is_active')->default(true)->index();
+            $table->timestamps();
+            $table->unique(['experience_id', 'key']);
+        });
+
+        Schema::create(config('filament-orchestrator.tables.interactions'), function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('experience_id')->constrained(config('filament-orchestrator.tables.experiences'))->cascadeOnDelete();
+            $table->string('name');
+            $table->string('key');
+            $table->string('source_type')->default('map.point')->index();
+            $table->string('source_key')->nullable()->index();
+            $table->string('trigger')->default('click')->index();
+            $table->string('trigger_event')->nullable()->index();
+            $table->json('conditions')->nullable();
+            $table->unsignedInteger('sort_order')->default(0);
+            $table->boolean('is_active')->default(true)->index();
+            $table->timestamps();
+            $table->unique(['experience_id', 'key']);
+        });
+
+        Schema::create(config('filament-orchestrator.tables.actions'), function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('interaction_id')->constrained(config('filament-orchestrator.tables.interactions'))->cascadeOnDelete();
+            $table->string('name')->nullable();
+            $table->string('key');
+            $table->string('type')->index();
+            $table->string('target')->nullable()->index();
+            $table->json('payload')->nullable();
+            $table->json('options')->nullable();
+            $table->unsignedInteger('sort_order')->default(0);
+            $table->boolean('is_active')->default(true)->index();
+            $table->timestamps();
+            $table->unique(['interaction_id', 'key']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(config('filament-orchestrator.tables.actions'));
+        Schema::dropIfExists(config('filament-orchestrator.tables.interactions'));
+        Schema::dropIfExists(config('filament-orchestrator.tables.contents'));
+        Schema::dropIfExists(config('filament-orchestrator.tables.experiences'));
+    }
+};
