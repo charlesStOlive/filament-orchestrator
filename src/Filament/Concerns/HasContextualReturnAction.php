@@ -48,7 +48,7 @@ trait HasContextualReturnAction
         $label = $this->contextualReturnLabel ?? request()->query('return_label');
 
         return Action::make('returnToOrchestration')
-            ->label('Retour au parcours'.(is_string($label) && filled($label) ? ' '.$label : ''))
+            ->label('Retour au parcours' . (is_string($label) && filled($label) ? ' ' . $label : ''))
             ->icon('heroicon-o-arrow-left')
             ->color('gray')
             ->url($returnUrl);
@@ -56,9 +56,9 @@ trait HasContextualReturnAction
 
     private function safeReturnUrl(mixed $returnUrl): ?string
     {
-        $panelUrl = url('/'.filament()->getCurrentPanel()->getPath());
+        $panelUrl = url('/' . filament()->getCurrentPanel()->getPath());
 
-        return is_string($returnUrl) && str_starts_with($returnUrl, $panelUrl.'/')
+        return is_string($returnUrl) && str_starts_with($returnUrl, $panelUrl . '/')
             ? $returnUrl
             : null;
     }

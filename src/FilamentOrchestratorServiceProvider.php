@@ -32,14 +32,18 @@ class FilamentOrchestratorServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
-        OrchestratorNode::saving(fn (OrchestratorNode $node) => app(NodeDefinitionValidator::class)->validate($node));
-        OrchestratorTrigger::saving(fn (OrchestratorTrigger $trigger) => app(TriggerDefinitionValidator::class)->validate($trigger));
-        OrchestratorAction::saving(fn (OrchestratorAction $action) => app(ActionDefinitionValidator::class)->validate($action));
+        OrchestratorNode::saving(fn(OrchestratorNode $node) => app(NodeDefinitionValidator::class)->validate($node));
+        OrchestratorTrigger::saving(fn(OrchestratorTrigger $trigger) => app(TriggerDefinitionValidator::class)->validate($trigger));
+        OrchestratorAction::saving(fn(OrchestratorAction $action) => app(ActionDefinitionValidator::class)->validate($action));
 
         Livewire::component('filament-orchestrator-player', OrchestrationPlayer::class);
 
         $this->publishes([
-            __DIR__.'/../resources/js' => public_path('vendor/filament-orchestrator'),
+            __DIR__ . '/../resources/js' => public_path('vendor/filament-orchestrator'),
         ], 'filament-orchestrator-assets');
+
+        $this->publishes([
+            __DIR__ . '/../docs/knowledge-base' => base_path('docs/knowledge-base/fr'),
+        ], 'filament-orchestrator-docs');
     }
 }

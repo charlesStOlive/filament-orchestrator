@@ -34,8 +34,8 @@ class NodesRelationManager extends RelationManager
         return $schema->components([
             Select::make('role')
                 ->label('Rôle')
-                ->options(fn (): array => $this->getOwnerRecord()->schemaDefinition()->nodeCollection()->mapWithKeys(
-                    fn ($definition): array => [$definition->role => $definition->label],
+                ->options(fn(): array => $this->getOwnerRecord()->schemaDefinition()->nodeCollection()->mapWithKeys(
+                    fn($definition): array => [$definition->role => $definition->label],
                 )->all())
                 ->default(static::$nodeRole)
                 ->required()
@@ -53,10 +53,10 @@ class NodesRelationManager extends RelationManager
                 ->required(),
             Select::make('orchestratable_type')
                 ->label('Classe')
-                ->options(fn (): array => $this->getOwnerRecord()->schemaDefinition()->nodeCollection()->mapWithKeys(
-                    fn ($definition): array => [$definition->model => class_basename($definition->model)],
+                ->options(fn(): array => $this->getOwnerRecord()->schemaDefinition()->nodeCollection()->mapWithKeys(
+                    fn($definition): array => [$definition->model => class_basename($definition->model)],
                 )->all())
-                ->default(fn (): ?string => $this->nodeDefinition()?->model)
+                ->default(fn(): ?string => $this->nodeDefinition()?->model)
                 ->required()
                 ->disabled()
                 ->dehydrated(),
@@ -75,7 +75,7 @@ class NodesRelationManager extends RelationManager
                         ->where('orchestratable_type', $instance->getMorphClass())
                         ->when(
                             $ownership === OrchestratorNode::OwnershipLinked,
-                            fn ($query) => $query->where('ownership', OrchestratorNode::OwnershipOwned),
+                            fn($query) => $query->where('ownership', OrchestratorNode::OwnershipOwned),
                         )
                         ->pluck('orchestratable_id');
                     $currentId = $get('orchestratable_id');
@@ -107,10 +107,10 @@ class NodesRelationManager extends RelationManager
                     ];
 
                     return collect($definition?->ownerships ?? [])
-                        ->mapWithKeys(fn (string $ownership): array => [$ownership => $labels[$ownership] ?? $ownership])
+                        ->mapWithKeys(fn(string $ownership): array => [$ownership => $labels[$ownership] ?? $ownership])
                         ->all();
                 })
-                ->default(fn (): ?string => $this->nodeDefinition()?->defaultOwnership)
+                ->default(fn(): ?string => $this->nodeDefinition()?->defaultOwnership)
                 ->live()
                 ->required(),
             TextInput::make('sort_order')->label('Ordre')->numeric()->default(0),
@@ -133,10 +133,10 @@ class NodesRelationManager extends RelationManager
                 TextColumn::make('key')->label('Clé'),
                 TextColumn::make('orchestratable_label')
                     ->label('Élément')
-                    ->state(fn (OrchestratorNode $record): string => $this->recordLabel($record)),
+                    ->state(fn(OrchestratorNode $record): string => $this->recordLabel($record)),
                 TextColumn::make('orchestratable_type')
                     ->label('Classe')
-                    ->formatStateUsing(fn (string $state): string => class_basename($state))
+                    ->formatStateUsing(fn(string $state): string => class_basename($state))
                     ->visible(blank(static::$nodeRole)),
                 TextColumn::make('orchestratable_id')->label('ID')->visible(blank(static::$nodeRole)),
                 TextColumn::make('ownership')->label('Mode')->badge(),
@@ -146,7 +146,7 @@ class NodesRelationManager extends RelationManager
                 $this->nativeCreateAction(),
                 CreateAction::make()
                     ->label($this->attachActionLabel())
-                    ->fillForm(fn (): array => array_filter([
+                    ->fillForm(fn(): array => array_filter([
                         'role' => static::$nodeRole,
                         'orchestratable_type' => $this->nodeDefinition()?->model,
                         'ownership' => $this->nodeDefinition()?->defaultOwnership,
@@ -157,8 +157,8 @@ class NodesRelationManager extends RelationManager
                 Action::make('deepEdit')
                     ->label('Ouvrir la ressource')
                     ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (OrchestratorNode $record): ?string => $this->deepEditUrl($record))
-                    ->visible(fn (OrchestratorNode $record): bool => $this->canDeepEdit($record)),
+                    ->url(fn(OrchestratorNode $record): ?string => $this->deepEditUrl($record))
+                    ->visible(fn(OrchestratorNode $record): bool => $this->canDeepEdit($record)),
                 EditAction::make(),
                 DeleteAction::make(),
             ])
@@ -178,7 +178,7 @@ class NodesRelationManager extends RelationManager
             return null;
         }
 
-        $resource = config('filament-orchestrator.node_management.roles.'.static::$nodeRole.'.resource');
+        $resource = config('filament-orchestrator.node_management.roles.' . static::$nodeRole . '.resource');
 
         if (! is_string($resource) || ! class_exists($resource) || ! $resource::hasPage('create') || ! $resource::canCreate()) {
             return null;
@@ -203,7 +203,7 @@ class NodesRelationManager extends RelationManager
 
     protected function createActionLabel(): string
     {
-        return 'Créer '.match (static::$nodeRole) {
+        return 'Créer ' . match (static::$nodeRole) {
             'map' => 'une carte',
             'point' => 'un hotpoint',
             'layer' => 'une couche',
@@ -218,7 +218,7 @@ class NodesRelationManager extends RelationManager
             return 'Ajouter un élément';
         }
 
-        return 'Rattacher '.match (static::$nodeRole) {
+        return 'Rattacher ' . match (static::$nodeRole) {
             'map' => 'une carte existante',
             'point' => 'un hotpoint existant',
             'layer' => 'une couche existante',
@@ -269,7 +269,7 @@ class NodesRelationManager extends RelationManager
             }
         }
 
-        return '#'.$node->orchestratable_id;
+        return '#' . $node->orchestratable_id;
     }
 
     private function labelColumn(string $model): string

@@ -24,9 +24,10 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Guava\FilamentKnowledgeBase\Contracts\HasKnowledgeBase;
 use Illuminate\Support\Str;
 
-class OrchestrationResource extends Resource
+class OrchestrationResource extends Resource implements HasKnowledgeBase
 {
     use BelongsToConfiguredOrchestratorCluster;
 
@@ -40,6 +41,16 @@ class OrchestrationResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    public static function getDocumentation(): array|string
+    {
+        return [
+            'orchestrator.comprendre',
+            'orchestrator.parcours',
+            'orchestrator.elements',
+            'orchestrator.declencheurs-actions',
+        ];
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
@@ -49,7 +60,7 @@ class OrchestrationResource extends Resource
                 ->schema([
                     Select::make('schema')
                         ->label('Schéma')
-                        ->options(fn (): array => app(SchemaRegistry::class)->options())
+                        ->options(fn(): array => app(SchemaRegistry::class)->options())
                         ->required()
                         ->searchable()
                         ->live(),
@@ -58,7 +69,7 @@ class OrchestrationResource extends Resource
                         ->label('Nom')
                         ->required()
                         ->live(onBlur: true)
-                        ->afterStateUpdated(fn (?string $state, callable $set) => $set('key', Str::slug($state ?? ''))),
+                        ->afterStateUpdated(fn(?string $state, callable $set) => $set('key', Str::slug($state ?? ''))),
                     TextInput::make('key')->label('Clé stable')->required()->unique(ignoreRecord: true),
                     TextInput::make('event_scope')
                         ->label('Scope événementiel')
@@ -91,7 +102,7 @@ class OrchestrationResource extends Resource
         if (config('filament-orchestrator.node_management.layout', 'grouped') === 'tabs') {
             $managers = collect(config('filament-orchestrator.node_management.roles', []))
                 ->pluck('manager')
-                ->filter(fn (mixed $manager): bool => is_string($manager) && is_subclass_of($manager, NodesRelationManager::class))
+                ->filter(fn(mixed $manager): bool => is_string($manager) && is_subclass_of($manager, NodesRelationManager::class))
                 ->values()
                 ->all();
 

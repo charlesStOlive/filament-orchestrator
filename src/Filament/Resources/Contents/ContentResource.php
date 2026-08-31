@@ -21,9 +21,10 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Guava\FilamentKnowledgeBase\Contracts\HasKnowledgeBase;
 use Illuminate\Support\Str;
 
-class ContentResource extends Resource
+class ContentResource extends Resource implements HasKnowledgeBase
 {
     use BelongsToConfiguredOrchestratorCluster;
 
@@ -34,6 +35,11 @@ class ContentResource extends Resource
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-photo';
 
     protected static ?string $navigationLabel = 'Contenus narratifs';
+
+    public static function getDocumentation(): array|string
+    {
+        return ['orchestrator.contenus', 'orchestrator.elements'];
+    }
 
     public static function form(Schema $schema): Schema
     {

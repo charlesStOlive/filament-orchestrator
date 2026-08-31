@@ -1,5 +1,16 @@
 # Filament Orchestrator
 
+## Documentation intégrée à Filament
+
+Le package dépend de `guava/filament-knowledge-base` et embarque une documentation opérateur dans `docs/knowledge-base`.
+L'application hôte peut l'ajouter à sa base de connaissances avec :
+
+```bash
+php artisan vendor:publish --tag=filament-orchestrator-docs --force
+```
+
+Les ressources Parcours interactifs et Contenus narratifs implémentent `HasKnowledgeBase`. Le plugin compagnon Guava affiche donc automatiquement les articles correspondants dans leur menu d'aide.
+
 `filament-orchestrator` centralise des scénarios interactifs sans stocker de
 PHP ni de JavaScript exécutable en base de données.
 
