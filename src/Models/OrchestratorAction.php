@@ -5,25 +5,26 @@ namespace CharlesStOlive\FilamentOrchestrator\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Action extends Model
+class OrchestratorAction extends Model
 {
     protected $fillable = [
-        'interaction_id',
+        'trigger_id',
+        'target_node_id',
         'name',
         'key',
-        'type',
-        'target',
-        'payload',
-        'options',
+        'action',
+        'target_role',
+        'target_key',
+        'parameters',
         'sort_order',
+        'on_error',
         'is_active',
     ];
 
     protected function casts(): array
     {
         return [
-            'payload' => 'array',
-            'options' => 'array',
+            'parameters' => 'array',
             'sort_order' => 'integer',
             'is_active' => 'boolean',
         ];
@@ -34,8 +35,13 @@ class Action extends Model
         return config('filament-orchestrator.tables.actions', parent::getTable());
     }
 
-    public function interaction(): BelongsTo
+    public function trigger(): BelongsTo
     {
-        return $this->belongsTo(Interaction::class);
+        return $this->belongsTo(OrchestratorTrigger::class, 'trigger_id');
+    }
+
+    public function targetNode(): BelongsTo
+    {
+        return $this->belongsTo(OrchestratorNode::class, 'target_node_id');
     }
 }

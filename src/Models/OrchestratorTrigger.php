@@ -6,16 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Interaction extends Model
+class OrchestratorTrigger extends Model
 {
     protected $fillable = [
-        'experience_id',
+        'orchestration_id',
+        'source_node_id',
         'name',
         'key',
-        'source_type',
+        'event',
+        'source_role',
         'source_key',
-        'trigger',
-        'trigger_event',
         'conditions',
         'sort_order',
         'is_active',
@@ -32,16 +32,21 @@ class Interaction extends Model
 
     public function getTable(): string
     {
-        return config('filament-orchestrator.tables.interactions', parent::getTable());
+        return config('filament-orchestrator.tables.triggers', parent::getTable());
     }
 
-    public function experience(): BelongsTo
+    public function orchestration(): BelongsTo
     {
-        return $this->belongsTo(Experience::class);
+        return $this->belongsTo(Orchestration::class);
+    }
+
+    public function sourceNode(): BelongsTo
+    {
+        return $this->belongsTo(OrchestratorNode::class, 'source_node_id');
     }
 
     public function actions(): HasMany
     {
-        return $this->hasMany(Action::class)->orderBy('sort_order');
+        return $this->hasMany(OrchestratorAction::class, 'trigger_id')->orderBy('sort_order')->orderBy('id');
     }
 }

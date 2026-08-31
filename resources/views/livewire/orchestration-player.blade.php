@@ -3,12 +3,16 @@
     class="space-y-4"
     data-filament-orchestrator
 >
-    @if ($showMap && $mapAvailable && $experience->map_id)
-        @livewire('filament-map-viewer', [
-            'map' => $experience->map_id,
-            'eventScope' => $experience->scope(),
-            'height' => $mapHeight,
-        ], key($playerDomId.'-map'))
+    @if ($showMap && $mapAvailable)
+        @foreach ($mapNodes as $mapNode)
+            @if ($mapNode->orchestratable_id)
+                @livewire('filament-map-viewer', [
+                    'map' => $mapNode->orchestratable_id,
+                    'eventScope' => $orchestration->scope(),
+                    'height' => $mapHeight,
+                ], key($playerDomId.'-map-'.$mapNode->getKey()))
+            @endif
+        @endforeach
     @endif
 
     <section
@@ -23,12 +27,11 @@
                 data-orchestrator-content-close
                 class="rounded-md px-2 py-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
                 aria-label="Fermer le contenu"
-            >
-                &times;
-            </button>
+            >&times;</button>
         </div>
         <div data-orchestrator-content-images class="mt-4 grid gap-3 sm:grid-cols-2"></div>
         <div data-orchestrator-content-body class="mt-4 whitespace-pre-wrap text-gray-700 dark:text-gray-200"></div>
+        <div data-orchestrator-content-buttons class="mt-5 flex flex-wrap gap-2"></div>
     </section>
 </div>
 

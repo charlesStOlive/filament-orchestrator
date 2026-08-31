@@ -2,19 +2,21 @@
 
 return [
     'tables' => [
-        'experiences' => 'filament_orchestrator_experiences',
+        'orchestrations' => 'filament_orchestrator_orchestrations',
+        'nodes' => 'filament_orchestrator_nodes',
         'contents' => 'filament_orchestrator_contents',
-        'interactions' => 'filament_orchestrator_interactions',
+        'triggers' => 'filament_orchestrator_triggers',
         'actions' => 'filament_orchestrator_actions',
     ],
 
     'resources' => [
-        'experiences' => true,
+        'orchestrations' => true,
+        'contents' => true,
     ],
 
-    'map' => [
-        'enabled' => true,
-    ],
-
-    'action_types' => [],
+    /*
+     * The application owns its use cases. Each class listed here describes
+     * the available node roles, events and actions for one orchestration type.
+     */
+    'schemas' => [],
 ];
