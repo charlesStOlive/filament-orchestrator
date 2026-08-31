@@ -48,6 +48,7 @@ export class OrchestratorInstance {
     }
 
     resolveEventSource(source = {}) {
+        source ??= {}
         const nodes = this.payload.nodes ?? []
         const node = nodes.find((candidate) => {
             if (source.nodeId && String(candidate.id) === String(source.nodeId)) {

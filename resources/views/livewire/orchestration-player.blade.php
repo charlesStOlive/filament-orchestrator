@@ -41,19 +41,13 @@
 
 @script
     <script>
-        const id = @js($playerDomId)
-        const payload = @js($payload)
+        const id = @js($playerDomId);
+        const payload = @js($payload);
 
-        window.__filamentOrchestratorPending = window.__filamentOrchestratorPending || {}
-        window.__filamentOrchestratorPending[id] = payload
+        window.__filamentOrchestratorPending = window.__filamentOrchestratorPending || {};
+        window.__filamentOrchestratorPending[id] = payload;
         window.dispatchEvent(new CustomEvent('filament-orchestrator:init', {
             detail: { id, payload },
-        }))
-
-        cleanup(() => {
-            window.dispatchEvent(new CustomEvent('filament-orchestrator:destroy', {
-                detail: { id },
-            }))
-        })
+        }));
     </script>
 @endscript
