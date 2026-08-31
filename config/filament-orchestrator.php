@@ -29,4 +29,10 @@ return [
      * the available node roles, events and actions for one orchestration type.
      */
     'schemas' => [],
+
+    /*
+     * Automations build and update complete orchestration graphs from
+     * application-owned, validated input.
+     */
+    'automations' => [],
 ];

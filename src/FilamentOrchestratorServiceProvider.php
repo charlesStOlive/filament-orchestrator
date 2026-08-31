@@ -6,6 +6,7 @@ use CharlesStOlive\FilamentOrchestrator\Livewire\OrchestrationPlayer;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorAction;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorNode;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorTrigger;
+use CharlesStOlive\FilamentOrchestrator\Registry\AutomationRegistry;
 use CharlesStOlive\FilamentOrchestrator\Registry\SchemaRegistry;
 use CharlesStOlive\FilamentOrchestrator\Services\ActionDefinitionValidator;
 use CharlesStOlive\FilamentOrchestrator\Services\NodeDefinitionValidator;
@@ -27,6 +28,7 @@ class FilamentOrchestratorServiceProvider extends PackageServiceProvider
 
     public function packageRegistered(): void
     {
+        $this->app->singleton(AutomationRegistry::class);
         $this->app->singleton(SchemaRegistry::class);
     }
 
