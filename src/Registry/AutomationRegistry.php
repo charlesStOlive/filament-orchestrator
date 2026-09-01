@@ -2,6 +2,7 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Registry;
 
+use CharlesStOlive\FilamentOrchestrator\Contracts\ManagedOrchestrationAutomation;
 use CharlesStOlive\FilamentOrchestrator\Contracts\OrchestrationAutomation;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Collection;
@@ -18,11 +19,15 @@ final class AutomationRegistry
     public function all(): Collection
     {
         return $this->automations ??= Collection::make(Config::get('filament-orchestrator.automations', []))
-            ->map(function (string|OrchestrationAutomation $automation): OrchestrationAutomation {
+            ->map(function (string|OrchestrationAutomation $automation, string $configuredKey): OrchestrationAutomation {
                 $instance = is_string($automation) ? $this->container->make($automation) : $automation;
 
                 if (! $instance instanceof OrchestrationAutomation) {
                     throw new InvalidArgumentException('Every orchestrator automation must implement OrchestrationAutomation.');
+                }
+
+                if ($instance instanceof ManagedOrchestrationAutomation && $instance->key() !== $configuredKey) {
+                    throw new InvalidArgumentException("Automation [{$configuredKey}] declares the incompatible key [{$instance->key()}].");
                 }
 
                 return $instance;
@@ -33,5 +38,16 @@ final class AutomationRegistry
     {
         return $this->all()->get($key)
             ?? throw new InvalidArgumentException("Unknown orchestrator automation [{$key}].");
+    }
+
+    public function getManaged(string $key): ManagedOrchestrationAutomation
+    {
+        $automation = $this->get($key);
+
+        if (! $automation instanceof ManagedOrchestrationAutomation) {
+            throw new InvalidArgumentException("Automation [{$key}] is not a managed orchestration automation.");
+        }
+
+        return $automation;
     }
 }

@@ -9,6 +9,38 @@ use Illuminate\Validation\ValidationException;
 
 final class NodeManager
 {
+    public function updateOrAttach(
+        Orchestration $orchestration,
+        string $role,
+        string $key,
+        Model $model,
+        ?string $ownership = null,
+        array $config = [],
+        int $sortOrder = 0,
+    ): OrchestratorNode {
+        $node = $orchestration->nodes()
+            ->where('role', $role)
+            ->where('key', $key)
+            ->first();
+
+        if ($node === null) {
+            return $this->attach($orchestration, $role, $key, $model, $ownership, $config, $sortOrder);
+        }
+
+        $definition = $orchestration->schemaDefinition()->node($role);
+        $ownership ??= $definition?->defaultOwnership;
+        $node->update([
+            'orchestratable_type' => $model->getMorphClass(),
+            'orchestratable_id' => $model->getKey(),
+            'ownership' => $ownership,
+            'config' => $config,
+            'sort_order' => $sortOrder,
+            'is_active' => true,
+        ]);
+
+        return $node->refresh();
+    }
+
     public function attach(
         Orchestration $orchestration,
         string $role,
