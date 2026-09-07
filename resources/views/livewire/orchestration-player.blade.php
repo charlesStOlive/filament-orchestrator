@@ -5,7 +5,11 @@
                 @livewire(
                     'filament-map-viewer',
                     [
-                        'map' => $mapNode->orchestratable_id,
+                        ...(config('filament-orchestrator.integrations.map_scenes', false) && $mapNode->orchestratable instanceof \CharlesStOlive\FilamentMap\Models\MapScene
+                            ? ['scene' => $mapNode->orchestratable_id,
+                               'points' => app(\CharlesStOlive\FilamentOrchestrator\Integrations\MapScenes\ScenePoints::class)->for($orchestration, $mapNode),
+                               'replaceStoredPoints' => true]
+                            : ['map' => $mapNode->orchestratable_id]),
                         'eventScope' => $orchestration->scope(),
                         'height' => $mapHeight,
                     ],
@@ -30,6 +34,7 @@
 </div>
 
 @assets
+    <script src="{{ asset('vendor/filament-orchestrator/map-scenes.js') }}"></script>
     <script type="module" src="{{ asset('vendor/filament-orchestrator/filament-orchestrator.js') }}"></script>
 @endassets
 
