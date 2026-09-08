@@ -2,7 +2,6 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Registry;
 
-use CharlesStOlive\FilamentOrchestrator\Automations\Recipes\DeclarativeAutomation;
 use CharlesStOlive\FilamentOrchestrator\Contracts\ManagedOrchestrationAutomation;
 use CharlesStOlive\FilamentOrchestrator\Contracts\OrchestrationAutomation;
 use Illuminate\Contracts\Container\Container;
@@ -20,18 +19,8 @@ final class AutomationRegistry
     public function all(): Collection
     {
         return $this->automations ??= Collection::make(Config::get('filament-orchestrator.automations', []))
-            ->map(function (string|array|OrchestrationAutomation $automation, string $configuredKey): OrchestrationAutomation {
-                if (is_string($automation) && str_starts_with($automation, 'config:')) {
-                    $path = substr($automation, 7);
-                    $automation = Config::get($path);
-                    if (! is_array($automation)) {
-                        throw new InvalidArgumentException("Automation [{$configuredKey}] requires an array configuration at [{$path}].");
-                    }
-                }
-
-                $instance = is_array($automation)
-                    ? new DeclarativeAutomation($configuredKey, $automation)
-                    : (is_string($automation) ? $this->container->make($automation) : $automation);
+            ->map(function (string|OrchestrationAutomation $automation, string $configuredKey): OrchestrationAutomation {
+                $instance = is_string($automation) ? $this->container->make($automation) : $automation;
 
                 if (! $instance instanceof OrchestrationAutomation) {
                     throw new InvalidArgumentException('Every orchestrator automation must implement OrchestrationAutomation.');
