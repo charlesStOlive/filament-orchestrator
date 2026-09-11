@@ -4,6 +4,7 @@ namespace CharlesStOlive\FilamentOrchestrator;
 
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Contents\ContentResource;
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Orchestrations\OrchestrationResource;
+use CharlesStOlive\FilamentOrchestrator\Registry\AutomationRegistry;
 use Filament\Contracts\Plugin;
 use Filament\Panel;
 
@@ -46,7 +47,9 @@ class FilamentOrchestratorPlugin implements Plugin
             $resources[] = ContentResource::class;
         }
 
-        $panel->resources($resources);
+        // Les automatisations sont des ressources Filament à part entière :
+        // la configuration ne fait que les désigner.
+        $panel->resources([...$resources, ...app(AutomationRegistry::class)->resources()]);
     }
 
     public function boot(Panel $panel): void {}

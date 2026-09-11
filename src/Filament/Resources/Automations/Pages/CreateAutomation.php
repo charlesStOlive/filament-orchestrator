@@ -2,27 +2,23 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Filament\Resources\Automations\Pages;
 
-use CharlesStOlive\FilamentOrchestrator\Registry\AutomationRegistry;
-use Filament\Resources\Pages\Concerns\HasWizard;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * Création pilotée par l'automatisation plutôt que par le modèle.
+ *
+ * Pour un parcours en étapes, la page de l'application ajoute le trait
+ * HasWizard de Filament et déclare ses getSteps() : rien de spécifique au
+ * moteur n'est nécessaire pour cela.
+ */
 class CreateAutomation extends CreateRecord
 {
-    use HasWizard;
-
     protected static bool $canCreateAnother = false;
-
-    public function getSteps(): array
-    {
-        return static::getResource()::creationSteps();
-    }
 
     protected function handleRecordCreation(array $data): Model
     {
-        return app(AutomationRegistry::class)
-            ->getManaged(static::getResource()::automationKey())
-            ->create($data);
+        return static::getResource()::createRecord($data);
     }
 
     protected function getRedirectUrl(): string

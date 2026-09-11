@@ -31,8 +31,9 @@ return [
     'schemas' => [],
 
     /*
-     * Automations build and update complete orchestration graphs from
-     * application-owned, validated input.
+     * Automations are Filament resources extending AutomationResource: they
+     * declare their own form, table, pages and projection. Only list the
+     * classes here — the plugin registers them on the panel.
      */
     'automations' => [],
 ];

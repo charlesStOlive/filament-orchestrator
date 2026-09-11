@@ -2,6 +2,7 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Schemas;
 
+use CharlesStOlive\FilamentOrchestrator\Automations\Projection\Projection;
 use CharlesStOlive\FilamentOrchestrator\Schemas\Definitions\ActionDefinition;
 use CharlesStOlive\FilamentOrchestrator\Schemas\Definitions\EventDefinition;
 use CharlesStOlive\FilamentOrchestrator\Schemas\Definitions\NodeDefinition;
@@ -16,6 +17,28 @@ abstract class OrchestratorSchema
     public function description(): ?string
     {
         return null;
+    }
+
+    /**
+     * Projection exposant le vocabulaire de ce schéma aux automatisations.
+     *
+     * Un schéma qui veut offrir des méthodes parlantes — point(), content(),
+     * whenPointClicked() — retourne ici sa propre sous-classe de Projection,
+     * qui désigne elle-même sa classe d'item. Elles vivent à côté de ce
+     * fichier, là où les événements et actions correspondants sont déclarés.
+     *
+     * @return class-string<Projection>
+     */
+    public function projectionClass(): string
+    {
+        return Projection::class;
+    }
+
+    public function newProjection(array $data): Projection
+    {
+        $class = $this->projectionClass();
+
+        return $class::make($this, $data);
     }
 
     /** @return array<NodeDefinition> */
