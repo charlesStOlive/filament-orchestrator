@@ -50,6 +50,66 @@ Un schéma étend `OrchestratorSchema` et déclare :
 - `events()` avec des `EventDefinition` ;
 - `actions()` avec des `ActionDefinition` et leurs `ParameterDefinition`.
 
+## Automatisations
+
+Construire une orchestration à la main convient aux cas uniques. Pour un
+parcours répétitif, une **automatisation** part d'un formulaire simplifié et
+fabrique le graphe complet : saisir une étape crée son hotpoint, son contenu,
+et le câblage qui les relie.
+
+Une automatisation est une ressource Filament ordinaire qui étend
+`AutomationResource`. Elle déclare son `form()`, sa `table()`, ses
+`getPages()`, et une méthode `projection()` qui dit ce que la saisie fabrique :
+
+```php
+class VoyageResource extends AutomationResource
+{
+    protected static string $automationKey = 'voyage';
+    protected static string $automationSchema = MapContentSchema::class;
+
+    public static function projection(MapContentProjection $projection): MapContentProjection
+    {
+        return $projection
+            ->scene(field: 'map_scene_id')
+            ->each('days', function (MapContentItem $day): void {
+                $day->point(name: 'label', latitude: 'latitude', longitude: 'longitude');
+                $day->content(title: 'title', body: 'body', images: 'images');
+                $day->whenPointClicked()->opensContent()->movesMapToPoint(zoom: 8);
+            }, keyFrom: 'label');
+    }
+}
+```
+
+Seule la classe est déclarée en configuration ; le plugin l'enregistre sur le
+panneau :
+
+```php
+return ['automations' => [App\Orchestrator\Automations\VoyageResource::class]];
+```
+
+### Où vit chaque chose
+
+Le moteur ne connaît que des nœuds et des événements : `Projection`, `Item`,
+`NodeDeclaration` et `Wiring` n'offrent que des primitives — `node()`, `on()`,
+`run()`. Les méthodes parlantes comme `point()` ou `whenPointClicked()`
+encodent un vocabulaire précis (`map.point.clicked`, `map.moveTo`) qui
+appartient au schéma : celui-ci les livre en retournant ses propres
+sous-classes depuis `projectionClass()`, et elles vivent à côté de lui. Chacune
+ne fait qu'une à trois lignes au-dessus d'une primitive, et `trigger()` reste
+là pour écrire un déclencheur entier à la main.
+
+### Ce que le moteur garantit
+
+- **Matérialisation progressive** : un nœud déclaré avec `when()` n'existe que
+  si ses champs sont renseignés, et le câblage qui le viserait s'efface tant
+  qu'il manque. Une étape se complète donc par étapes, sans jamais produire de
+  graphe invalide.
+- **Édition manuelle préservée** : la synchronisation ne crée, ne met à jour et
+  ne supprime que les nœuds portant sa propre clé d'automatisation. Ce qui a
+  été ajouté à la main dans l'orchestration survit à toute régénération.
+- **Nettoyage** : retirer une ligne du formulaire supprime les nœuds qu'elle
+  avait produits, et avec eux les modèles dont elle était propriétaire.
+
 ## Tables
 
 - `filament_orchestrator_orchestrations` : instance, schéma, scope, configuration et état initial ;
