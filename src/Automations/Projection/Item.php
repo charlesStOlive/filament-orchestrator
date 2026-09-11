@@ -61,6 +61,6 @@ class Item
 
     public function on(string $event): Wiring
     {
-        return $this->projection->on($event);
+        return $this->projection->on($event, $this);
     }
 }

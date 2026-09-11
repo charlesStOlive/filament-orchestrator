@@ -33,12 +33,24 @@ class Wiring
     public function __construct(
         protected readonly Projection $projection,
         public readonly string $event,
+        protected readonly ?Item $item = null,
     ) {
         if ($projection->schema()->event($event) === null) {
             throw new InvalidArgumentException(
                 "L'événement [{$event}] n'est pas déclaré par le schéma [{$projection->schema()->key()}].",
             );
         }
+    }
+
+    /** Item ayant déclaré ce câblage, quand il en vient d'un. */
+    public function item(): ?Item
+    {
+        return $this->item;
+    }
+
+    public function projection(): Projection
+    {
+        return $this->projection;
     }
 
     public function from(string $role, ?string $key = null): static

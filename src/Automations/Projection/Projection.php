@@ -55,6 +55,12 @@ class Projection
         return Item::class;
     }
 
+    /** Classe de câblage utilisée par on() ; un schéma la remplace par la sienne. */
+    public static function wiringClass(): string
+    {
+        return Wiring::class;
+    }
+
     public function schema(): OrchestratorSchema
     {
         return $this->schema;
@@ -121,9 +127,10 @@ class Projection
     }
 
     /** Point d'entrée du câblage : « quand cet événement survient… ». */
-    public function on(string $event): Wiring
+    public function on(string $event, ?Item $item = null): Wiring
     {
-        $wiring = new Wiring($this, $event);
+        $class = static::wiringClass();
+        $wiring = new $class($this, $event, $item);
         $this->wirings[] = $wiring;
 
         return $wiring;
