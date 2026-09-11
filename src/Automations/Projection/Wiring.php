@@ -30,6 +30,8 @@ class Wiring
 
     protected ?string $label = null;
 
+    protected bool $skipped = false;
+
     public function __construct(
         protected readonly Projection $projection,
         public readonly string $event,
@@ -53,12 +55,26 @@ class Wiring
         return $this->projection;
     }
 
+    /**
+     * Source de l'événement. Si le nœud visé n'a pas été matérialisé, le
+     * câblage entier s'efface : une étape incomplète ne produit simplement pas
+     * encore son déclencheur.
+     */
     public function from(string $role, ?string $key = null): static
     {
         $this->sourceRole = $role;
         $this->sourceKey = $key;
 
+        if ($key !== null && ! $this->projection->hasNode($role, $key)) {
+            $this->skipped = true;
+        }
+
         return $this;
+    }
+
+    public function isSkipped(): bool
+    {
+        return $this->skipped;
     }
 
     /** @param array<string, mixed> $conditions */
@@ -84,6 +100,11 @@ class Wiring
             throw new InvalidArgumentException(
                 "L'action [{$action}] n'est pas déclarée par le schéma [{$this->projection->schema()->key()}].",
             );
+        }
+
+        // Une action visant un nœud non matérialisé est simplement omise.
+        if ($role !== null && $key !== null && ! $this->projection->hasNode($role, $key)) {
+            return $this;
         }
 
         $blueprint = ActionBlueprint::make(

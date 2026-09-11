@@ -62,6 +62,14 @@ final class NodeSynchronizer
         );
     }
 
+    private function existingNode(Orchestration $orchestration, NodeDeclaration $declaration): ?OrchestratorNode
+    {
+        return $orchestration->nodes()
+            ->where('role', $declaration->role)
+            ->where('key', $declaration->key)
+            ->first();
+    }
+
     private function persistModel(
         Orchestration $orchestration,
         NodeDeclaration $declaration,

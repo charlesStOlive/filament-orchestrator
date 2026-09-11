@@ -159,6 +159,22 @@ class Projection
      *
      * @return array<int, NodeDeclaration>
      */
+    /**
+     * Un nœud matérialisé a-t-il déjà été déclaré pour ce rôle et cette clé ?
+     * Le câblage s'en sert pour s'effacer quand sa source ou sa cible n'existe
+     * pas — déclarez donc les nœuds avant de les câbler.
+     */
+    public function hasNode(string $role, string $key): bool
+    {
+        foreach ($this->nodes as $node) {
+            if ($node->role === $role && $node->key === $key && $node->isMaterialized()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function declaredNodes(?string $role = null, bool $materializedOnly = true): array
     {
         return array_values(array_filter(
@@ -174,7 +190,7 @@ class Projection
         $usedTriggerKeys = [];
 
         foreach ($this->wirings as $wiring) {
-            if (! $wiring->hasActions()) {
+            if ($wiring->isSkipped() || ! $wiring->hasActions()) {
                 continue;
             }
 
