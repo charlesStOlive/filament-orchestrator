@@ -12,10 +12,4 @@ class SceneOrchestrationPayloadBuilder extends OrchestrationPayloadBuilder
     {
         return [...parent::modelPayload($model), ...($model instanceof MapScene ? ['mapScene' => true] : [])];
     }
-
-    protected function modelIsActive(?Model $model): bool
-    {
-        return parent::modelIsActive($model)
-            && (! $model instanceof MapScene || (bool) $model->map?->is_active);
-    }
 }

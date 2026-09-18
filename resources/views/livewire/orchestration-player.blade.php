@@ -1,15 +1,14 @@
 <div id="{{ $playerDomId }}" class="space-y-4" data-filament-orchestrator>
     @if ($showMap && $mapAvailable)
         @foreach ($mapNodes as $mapNode)
-            @if ($mapNode->orchestratable_id)
+            @if ($mapNode->orchestratable_id && config('filament-orchestrator.integrations.map_scenes', false) && $mapNode->orchestratable instanceof \CharlesStOlive\FilamentMap\Models\MapScene)
                 @livewire(
                     'filament-map-viewer',
                     [
-                        ...(config('filament-orchestrator.integrations.map_scenes', false) && $mapNode->orchestratable instanceof \CharlesStOlive\FilamentMap\Models\MapScene
-                            ? ['scene' => $mapNode->orchestratable_id,
-                               'points' => app(\CharlesStOlive\FilamentOrchestrator\Integrations\MapScenes\ScenePoints::class)->for($orchestration, $mapNode),
-                               'replaceStoredPoints' => true]
-                            : ['map' => $mapNode->orchestratable_id]),
+                        'scene' => $mapNode->orchestratable_id,
+                        'points' => app(\CharlesStOlive\FilamentOrchestrator\Integrations\MapScenes\ScenePoints::class)->for($orchestration, $mapNode),
+                        'replaceStoredPoints' => true,
+                        'options' => $orchestration->config['map_overrides'] ?? [],
                         'eventScope' => $orchestration->scope(),
                         'height' => $mapHeight,
                     ],

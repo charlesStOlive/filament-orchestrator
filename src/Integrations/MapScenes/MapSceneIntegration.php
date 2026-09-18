@@ -3,9 +3,7 @@
 namespace CharlesStOlive\FilamentOrchestrator\Integrations\MapScenes;
 
 use CharlesStOlive\FilamentMap\Events\ContextualResourceCreated as MapResourceCreated;
-use CharlesStOlive\FilamentMap\Models\GeoPoint;
 use CharlesStOlive\FilamentMap\Models\MapScene;
-use CharlesStOlive\FilamentOrchestrator\Events\AutomationNodeRemoved;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorAction;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorNode;
@@ -52,14 +50,5 @@ final class MapSceneIntegration
         Event::listen(MapResourceCreated::class, function (MapResourceCreated $event): void {
             app(AttachContextualResource::class)->handle($event->record, $event->context);
         });
-
-        // Un hotpoint retiré par une automatisation est en suppression douce :
-        // sans détachement explicite, ses cartes garderaient des lignes de pivot.
-        Event::listen(AutomationNodeRemoved::class, function (AutomationNodeRemoved $event): void {
-            if ($event->model instanceof GeoPoint) {
-                $event->model->maps()->detach();
-            }
-        });
-
     }
 }
