@@ -3,6 +3,7 @@
 namespace CharlesStOlive\FilamentOrchestrator\Services;
 
 use CharlesStOlive\FilamentOrchestrator\Contracts\Orchestratable;
+use CharlesStOlive\FilamentOrchestrator\Library\LibraryImages;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorAction;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorNode;
@@ -20,6 +21,7 @@ class OrchestrationPayloadBuilder
         ]);
 
         $schema = $orchestration->schemaDefinition();
+        $library = new LibraryImages;
         $nodes = $orchestration->nodes
             ->where('is_active', true)
             ->filter(fn (OrchestratorNode $node): bool => $this->modelIsActive($node->orchestratable))
@@ -36,7 +38,7 @@ class OrchestrationPayloadBuilder
             ],
             'schema' => $schema->toArray(),
             'nodes' => $nodes
-                ->map(fn (OrchestratorNode $node): array => $this->node($node))
+                ->map(fn (OrchestratorNode $node): array => $this->node($node, $orchestration, $library))
                 ->all(),
             'triggers' => $orchestration->triggers
                 ->where('is_active', true)
@@ -61,9 +63,22 @@ class OrchestrationPayloadBuilder
         ];
     }
 
-    protected function node(OrchestratorNode $node): array
+    protected function node(OrchestratorNode $node, Orchestration $orchestration, LibraryImages $library): array
     {
         $model = $node->orchestratable;
+        $data = $this->modelPayload($model);
+        $tags = (array) ($node->config[LibraryImages::NODE_CONFIG_KEY] ?? []);
+
+        // Les images propres au modèle passent d'abord, puis celles de la
+        // bibliothèque portant les tags que ce nœud déclare.
+        if ($tags !== []) {
+            $data['images'] = [
+                ...($data['images'] ?? []),
+                ...$library->tagged($orchestration, $tags)
+                    ->map(fn ($media): array => $library->payload($media))
+                    ->all(),
+            ];
+        }
 
         return [
             'id' => $node->getKey(),
@@ -74,7 +89,7 @@ class OrchestrationPayloadBuilder
                 'type' => $model->getMorphClass(),
                 'id' => $model->getKey(),
             ] : null,
-            'data' => $this->modelPayload($model),
+            'data' => $data,
             'config' => $node->config ?? [],
         ];
     }

@@ -29,6 +29,12 @@ class LibraryMedia extends Media
         ];
     }
 
+    /** La vignette quand elle existe (sinon l'original, le temps qu'elle soit générée). */
+    public function thumbUrl(): string
+    {
+        return $this->hasGeneratedConversion('thumb') ? $this->getUrl('thumb') : $this->getUrl();
+    }
+
     public function hasGps(): bool
     {
         return $this->latitude !== null && $this->longitude !== null;

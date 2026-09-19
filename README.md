@@ -73,7 +73,7 @@ class VoyageResource extends AutomationResource
             ->scene(field: 'map_scene_id')
             ->each('days', function (MapContentItem $day): void {
                 $day->point(name: 'label', latitude: 'latitude', longitude: 'longitude');
-                $day->content(title: 'title', body: 'body', images: 'images');
+                $day->content(title: 'title', body: 'body', libraryTags: ['day:'.$day->automationId()]);
                 $day->whenPointClicked()->opensContent()->movesMapToPoint(zoom: 8);
             }, keyFrom: 'label');
     }
@@ -109,6 +109,38 @@ là pour écrire un déclencheur entier à la main.
   été ajouté à la main dans l'orchestration survit à toute régénération.
 - **Nettoyage** : retirer une ligne du formulaire supprime les nœuds qu'elle
   avait produits, et avec eux les modèles dont elle était propriétaire.
+
+## Bibliothèque d'images
+
+Les images d'une orchestration ne sont pas rangées dans ses contenus : elles
+vivent toutes **sur l'orchestration**, dans sa bibliothèque (collection Spatie
+`library`). Ce qui rattache une image à une journée ou à une introduction, ce
+sont ses **tags**. Un contenu ne possède donc pas d'images, il déclare les tags
+dont il affiche les images — `NodeDeclaration::library([...])` — et le payload
+lit la bibliothèque à l'affichage. Rien n'est copié.
+
+Chaque image porte sa date de prise de vue et sa position GPS (lues dans
+l'EXIF) dans de vraies colonnes de la table `media`, ce qui permet de les
+trier, filtrer et grouper.
+
+- **Entrer une image** : toujours par `Library\LibraryIngestor`, quel que soit
+  l'uploader. Il stocke, lit l'EXIF, puis pose les tags — ceux du
+  `IngestContext` (par exemple le tag de la journée depuis laquelle on
+  envoie) et ceux des `LibraryTagger` listés dans
+  `filament-orchestrator.library.taggers`.
+- **Gérer** : `MediaLibraryAction` ouvre `MediaLibraryTable`, une grille de
+  cartes avec filtres (date, tags, GPS, autour d'un point), groupements (date,
+  zone) et actions groupées de tag. Elle s'ajoute comme n'importe quelle
+  action : `MediaLibraryAction::make()->record($this->record)`.
+- **Lire** : `Library\LibraryImages` retrouve les images d'un voyage par tag,
+  en une seule requête ; c'est ce que consomme `OrchestrationPayloadBuilder`.
+- **Libellés** : un tag technique (`day:3f9c…`) s'affiche par le
+  `LibraryTagLabeler` de l'application (« J2 · Arrivée à Lisbonne »).
+
+Les tags d'une bibliothèque sont rangés sous un type propre à l'orchestration :
+deux voyages ne partagent jamais un tag. La configuration se trouve sous la clé
+`library` ; comme la fusion de config est superficielle, une application qui la
+publie doit en reprendre toutes les clés.
 
 ## Tables
 

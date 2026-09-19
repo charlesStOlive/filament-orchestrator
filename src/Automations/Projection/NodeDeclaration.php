@@ -2,6 +2,7 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Automations\Projection;
 
+use CharlesStOlive\FilamentOrchestrator\Library\LibraryImages;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorNode;
 use CharlesStOlive\FilamentOrchestrator\Schemas\Definitions\NodeDefinition;
 use Closure;
@@ -120,6 +121,20 @@ class NodeDeclaration
         ];
 
         return $this;
+    }
+
+    /**
+     * Ce nœud affiche les images de la bibliothèque qui portent ces tags.
+     *
+     * Rien n'est copié : les images restent dans la bibliothèque de
+     * l'orchestration, et le nœud ne garde que la liste des tags à lire. Une
+     * liste vide retire les tags précédemment déclarés.
+     *
+     * @param  array<int, string>  $tags
+     */
+    public function library(array $tags): static
+    {
+        return $this->config([LibraryImages::NODE_CONFIG_KEY => array_values(array_unique($tags))]);
     }
 
     /** @param array<string, mixed|Closure> $config */

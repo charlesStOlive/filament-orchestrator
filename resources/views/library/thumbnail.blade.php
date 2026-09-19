@@ -1,6 +1,6 @@
 @php
     $media = $getRecord();
-    $url = $media->hasGeneratedConversion('thumb') ? $media->getUrl('thumb') : $media->getUrl();
+    $url = $media->thumbUrl();
 @endphp
 
 <img
