@@ -6,9 +6,23 @@ use CharlesStOlive\FilamentOrchestrator\Registry\SchemaRegistry;
 use CharlesStOlive\FilamentOrchestrator\Schemas\OrchestratorSchema;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Spatie\Image\Enums\Fit;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
-class Orchestration extends Model
+class Orchestration extends Model implements HasMedia
 {
+    use InteractsWithMedia;
+
+    /**
+     * Toutes les images d'une orchestration vivent ici, au niveau du modèle.
+     * Ce qui les rattache à un contenu précis (une journée, une introduction),
+     * ce sont leurs tags, pas leur emplacement.
+     */
+    public const LIBRARY_COLLECTION = 'library';
+
     protected $fillable = [
         'schema',
         'name',
@@ -29,9 +43,50 @@ class Orchestration extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        // Les images partent avec l'orchestration (medialibrary s'en charge) :
+        // il ne reste que les tags de sa bibliothèque à balayer.
+        static::deleted(fn (self $orchestration) => LibraryTag::query()
+            ->where('type', $orchestration->libraryTagType())
+            ->delete());
+    }
+
     public function getTable(): string
     {
         return config('filament-orchestrator.tables.orchestrations', parent::getTable());
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection(self::LIBRARY_COLLECTION)
+            ->useDisk(config('filament-orchestrator.library.disk', 'public'))
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+    }
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $thumb = $this->addMediaConversion('thumb')
+            ->performOnCollections(self::LIBRARY_COLLECTION)
+            ->fit(Fit::Crop, 480, 480);
+
+        // Par défaut synchrone : sans worker de queue, une vignette mise en
+        // file d'attente n'apparaîtrait jamais.
+        config('filament-orchestrator.library.queue_conversions', false)
+            ? $thumb->queued()
+            : $thumb->nonQueued();
+    }
+
+    /** Les images de la bibliothèque, et elles seules. */
+    public function libraryMedia(): MorphMany
+    {
+        return $this->media()->where('collection_name', self::LIBRARY_COLLECTION);
+    }
+
+    /** Type sous lequel sont rangés les tags de cette bibliothèque : un type par orchestration. */
+    public function libraryTagType(): string
+    {
+        return 'orchestration-'.$this->getKey();
     }
 
     public function nodes(): HasMany

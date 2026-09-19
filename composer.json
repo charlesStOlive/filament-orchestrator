@@ -16,7 +16,8 @@
         "guava/filament-knowledge-base": "^3.0",
         "livewire/livewire": "^3.0|^4.0",
         "spatie/laravel-medialibrary": "^11.0",
-        "spatie/laravel-package-tools": "^1.16"
+        "spatie/laravel-package-tools": "^1.16",
+        "spatie/laravel-tags": "^4.12"
     },
     "suggest": {
         "charlesstolive/filament-map": "Adds map, point and layer adapters"

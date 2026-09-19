@@ -5,7 +5,10 @@ namespace CharlesStOlive\FilamentOrchestrator;
 use CharlesStOlive\FilamentMap\Models\MapScene;
 use CharlesStOlive\FilamentOrchestrator\Events\ContextualResourceCreated;
 use CharlesStOlive\FilamentOrchestrator\Integrations\MapScenes\MapSceneIntegration;
+use CharlesStOlive\FilamentOrchestrator\Library\Livewire\MediaLibraryTable;
 use CharlesStOlive\FilamentOrchestrator\Livewire\OrchestrationPlayer;
+use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
+use CharlesStOlive\FilamentOrchestrator\Models\LibraryTag;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorAction;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorNode;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorTrigger;
@@ -19,6 +22,8 @@ use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Spatie\Tags\Tag;
 
 class FilamentOrchestratorServiceProvider extends PackageServiceProvider
 {
@@ -28,7 +33,10 @@ class FilamentOrchestratorServiceProvider extends PackageServiceProvider
             ->name('filament-orchestrator')
             ->hasConfigFile('filament-orchestrator')
             ->hasViews('filament-orchestrator')
-            ->hasMigration('create_filament_orchestrator_tables');
+            ->hasMigrations([
+                'create_filament_orchestrator_tables',
+                'add_library_columns_to_media_table',
+            ]);
     }
 
     public function packageRegistered(): void
@@ -39,6 +47,8 @@ class FilamentOrchestratorServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
+        $this->useLibraryModels();
+
         Event::listen(ContextualResourceCreated::class, function ($event): void {
             app(AttachContextualResource::class)->handle($event->record, $event->context);
         });
@@ -54,6 +64,7 @@ class FilamentOrchestratorServiceProvider extends PackageServiceProvider
         }
 
         Livewire::component('filament-orchestrator-player', OrchestrationPlayer::class);
+        Livewire::component('filament-orchestrator-media-library', MediaLibraryTable::class);
 
         $this->publishes([
             __DIR__.'/../resources/js' => public_path('vendor/filament-orchestrator'),
@@ -62,5 +73,24 @@ class FilamentOrchestratorServiceProvider extends PackageServiceProvider
         $this->publishes([
             __DIR__.'/../docs/knowledge-base' => base_path('docs/knowledge-base/fr'),
         ], 'filament-orchestrator-docs');
+    }
+
+    /**
+     * Substitue les modèles Media et Tag de la bibliothèque à ceux de Spatie,
+     * tant que l'application n'a pas choisi les siens.
+     */
+    private function useLibraryModels(): void
+    {
+        if (! config('filament-orchestrator.library.register_models', true)) {
+            return;
+        }
+
+        if (config('media-library.media_model') === Media::class) {
+            config(['media-library.media_model' => LibraryMedia::class]);
+        }
+
+        if (config('tags.tag_model') === Tag::class) {
+            config(['tags.tag_model' => LibraryTag::class]);
+        }
     }
 }
