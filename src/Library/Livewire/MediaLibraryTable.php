@@ -36,6 +36,7 @@ use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Session;
 
 /**
  * Gestion de la bibliothèque d'images d'une orchestration : une grille de
@@ -61,6 +62,28 @@ class MediaLibraryTable extends TableComponent
      */
     #[Locked]
     public array $focusTags = [];
+
+    /**
+     * La taille des vignettes : S, M ou L. Gardée dans la session de
+     * l'utilisateur, elle survit à la fermeture de la bibliothèque.
+     */
+    #[Session(key: 'orchestrator-library-size')]
+    #[Locked]
+    public string $size = 'm';
+
+    /**
+     * Les trois tailles. `grid` est le nombre de cartes par ligne selon la
+     * largeur de l'écran — la case à cocher de Filament prend environ 2,5 rem
+     * dans chaque carte, d'où des carrés petits mais pas minuscules — et `tags`
+     * le nombre de tags nommés sur la carte avant le « +N ».
+     *
+     * @var array<string, array{label: string, hint: string, grid: array<string, int>, tags: int}>
+     */
+    private const SIZES = [
+        's' => ['label' => 'S', 'hint' => 'Petites vignettes, en icônes', 'grid' => ['default' => 3, 'md' => 6, 'xl' => 8], 'tags' => 0],
+        'm' => ['label' => 'M', 'hint' => 'Vignettes normales', 'grid' => ['default' => 2, 'md' => 3, 'xl' => 4], 'tags' => 1],
+        'l' => ['label' => 'L', 'hint' => 'Grandes vignettes', 'grid' => ['default' => 1, 'md' => 2, 'xl' => 3], 'tags' => 2],
+    ];
 
     /** @param array<int, string> $focusTags */
     public function mount(int $orchestrationId, array $focusTags = []): void
@@ -109,7 +132,12 @@ class MediaLibraryTable extends TableComponent
             ->query(fn (): Builder => $this->orchestration->libraryMedia()->getQuery()->with('tags'))
             ->columns([
                 Stack::make([
-                    ViewColumn::make('thumbnail')->view('filament-orchestrator::library.thumbnail'),
+                    ViewColumn::make('thumbnail')
+                        ->view('filament-orchestrator::library.thumbnail')
+                        ->viewData(fn (LibraryMedia $record): array => [
+                            'size' => $this->currentSize(),
+                            'tagLabels' => $this->tagLabels($record),
+                        ]),
                     Split::make([
                         TextColumn::make('taken_at')
                             ->label('Date de prise de vue')
@@ -127,23 +155,25 @@ class MediaLibraryTable extends TableComponent
                             ->trueColor('success')
                             ->falseColor('gray')
                             ->grow(false),
-                    ]),
+                    ])->visible(fn (): bool => $this->currentSize() !== 's'),
                     TextColumn::make('library_tags')
                         ->label('Tags')
                         ->state(fn (LibraryMedia $record): array => $this->visibleTags($record)['badges'])
                         ->badge()
+                        ->size(TextSize::ExtraSmall)
                         // « +N » se distingue des vrais tags par sa couleur.
                         ->color(fn (string $state, LibraryMedia $record): string => $state === ($this->visibleTags($record)['overflow'] ?? null)
                             ? 'gray'
                             : 'primary')
-                        // Tous les tags, au survol : la carte n'en montre qu'un.
+                        // Tous les tags, au survol : la carte n'en montre que quelques-uns.
                         ->tooltip(fn (LibraryMedia $record): ?string => $this->visibleTags($record)['overflow'] !== null
                             ? implode(', ', $this->tagLabels($record))
                             : null)
-                        ->placeholder('Sans tag'),
+                        ->placeholder('Sans tag')
+                        ->visible(fn (): bool => $this->currentSize() !== 's'),
                 ])->space(2),
             ])
-            ->contentGrid(['default' => 2, 'md' => 3, 'xl' => 5])
+            ->contentGrid(fn (): array => self::SIZES[$this->currentSize()]['grid'])
             ->defaultSort('taken_at')
             ->paginated([24, 48, 96])
             ->defaultPaginationPageOption(48)
@@ -169,6 +199,7 @@ class MediaLibraryTable extends TableComponent
                     ->source('library')
                     ->label('Ajouter des images'),
                 $this->selectionActions(),
+                $this->sizeActions(),
             ])
             ->emptyStateHeading('Aucune image')
             ->emptyStateDescription('Les images envoyées pour ce voyage apparaissent ici.')
@@ -544,11 +575,30 @@ class MediaLibraryTable extends TableComponent
         return array_values(array_unique(array_filter(array_map('trim', $tags), 'strlen')));
     }
 
-    /** @var int Nombre de tags nommés sur la carte ; les autres se cachent derrière « +N ». */
-    private const VISIBLE_TAGS = 1;
-
     /** Nombre de caractères d'un libellé de tag sur la carte ; le tooltip donne le libellé entier. */
     private const TAG_BADGE_LENGTH = 18;
+
+    /** La taille en cours, ramenée à une valeur connue si la session en gardait une périmée. */
+    private function currentSize(): string
+    {
+        return array_key_exists($this->size, self::SIZES) ? $this->size : 'm';
+    }
+
+    /** Les boutons S / M / L, en groupe, dans la barre d'outils. */
+    private function sizeActions(): ActionGroup
+    {
+        return ActionGroup::make(array_map(
+            fn (string $key, array $size): Action => Action::make('size'.strtoupper($key))
+                ->label($size['label'])
+                ->tooltip($size['hint'])
+                ->color(fn (): string => $this->currentSize() === $key ? 'primary' : 'gray')
+                ->action(function () use ($key): void {
+                    $this->size = $key;
+                }),
+            array_keys(self::SIZES),
+            self::SIZES,
+        ))->buttonGroup();
+    }
 
     /** @return array<int, string> Les libellés de tous les tags de l'image. */
     private function tagLabels(LibraryMedia $media): array
@@ -567,7 +617,7 @@ class MediaLibraryTable extends TableComponent
         $labels = $this->tagLabels($media);
         $badges = array_map(
             fn (string $label): string => Str::limit($label, self::TAG_BADGE_LENGTH),
-            array_slice($labels, 0, self::VISIBLE_TAGS),
+            array_slice($labels, 0, self::SIZES[$this->currentSize()]['tags']),
         );
         $hidden = count($labels) - count($badges);
         $overflow = $hidden > 0 ? '+'.$hidden : null;

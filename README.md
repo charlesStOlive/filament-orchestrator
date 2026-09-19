@@ -135,7 +135,7 @@ trier, filtrer et grouper.
   composants qui affichent la bibliothèque écoutent pour se rafraîchir.
 - **Gérer** : `MediaLibraryAction` ouvre `MediaLibraryTable`, une grille de
   cartes avec filtres (date, tags, GPS, autour d'un point), groupements (date,
-  zone) et actions groupées de tag. Elle s'ajoute comme n'importe quelle
+  zone), actions groupées de tag, et trois tailles de vignettes S / M / L (S : petits carrés à icônes ; le choix est gardé en session). Elle s'ajoute comme n'importe quelle
   action : `MediaLibraryAction::make()->record($this->record)`.
 - **Version légère** : `TagImagesPanel` est un composant Livewire à glisser
   dans l'écran d'un contenu (une journée, une introduction) : les images qui
