@@ -39,7 +39,7 @@ class OrchestrationPlayer extends Component
             'mapNodes' => $orchestration->nodes
                 ->whereIn('id', $activeMapNodeIds)
                 ->values(),
-            'mapAvailable' => class_exists('CharlesStOlive\\FilamentMap\\Models\\Map'),
+            'mapAvailable' => class_exists('CharlesStOlive\\FilamentMap\\Models\\MapScene'),
             'playerDomId' => 'filament-orchestrator-'.$this->getId(),
         ]);
     }
