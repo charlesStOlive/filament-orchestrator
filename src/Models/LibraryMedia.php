@@ -4,6 +4,7 @@ namespace CharlesStOlive\FilamentOrchestrator\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Spatie\Tags\HasTags;
 
 /**
@@ -18,7 +19,9 @@ use Spatie\Tags\HasTags;
  */
 class LibraryMedia extends Media
 {
-    use HasTags;
+    use HasTags {
+        HasTags::tags as private baseTags;
+    }
 
     protected function casts(): array
     {
@@ -33,6 +36,22 @@ class LibraryMedia extends Media
     public function thumbUrl(): string
     {
         return $this->hasGeneratedConversion('thumb') ? $this->getUrl('thumb') : $this->getUrl();
+    }
+
+    /** Les tags, avec leur position dans l'ensemble qu'ils désignent (voir la colonne `sort` du pivot). */
+    public function tags(): MorphToMany
+    {
+        return $this->baseTags()->withPivot('sort');
+    }
+
+    /**
+     * La date est-elle celle de la prise de vue (EXIF) ou saisie à la main, plutôt
+     * que celle du fichier ? Une image plus ancienne que la colonne
+     * `date_source` est réputée datée par son EXIF.
+     */
+    public function hasReliableDate(): bool
+    {
+        return $this->getCustomProperty('date_source', 'exif') !== 'file';
     }
 
     public function hasGps(): bool

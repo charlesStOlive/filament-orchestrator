@@ -8,21 +8,23 @@ use Carbon\CarbonImmutable;
  * Lit la date de prise de vue et la position GPS dans l'EXIF d'une image.
  *
  * Une photo sans EXIF, ou dans un format qui n'en porte pas, n'est pas une
- * erreur : elle n'a simplement ni date ni position. On ne retombe volontairement
- * pas sur la date du fichier, qui est celle de l'envoi et non de la prise de vue.
+ * erreur : elle n'a simplement pas de position. Sa date, elle, retombe sur celle
+ * du fichier, marquée comme telle (`dateSource`) : pour un fichier envoyé par un
+ * navigateur c'est la date de l'envoi, une approximation que l'on ne confond pas
+ * avec une vraie prise de vue.
  */
 final class MetadataExtractor
 {
     public function extract(string $path): MediaMetadata
     {
-        if (! function_exists('exif_read_data') || ! is_file($path)) {
+        if (! is_file($path)) {
             return new MediaMetadata;
         }
 
-        $exif = @exif_read_data($path);
+        $exif = function_exists('exif_read_data') ? @exif_read_data($path) : false;
 
         if (! is_array($exif)) {
-            return new MediaMetadata;
+            return $this->withFileDate(new MediaMetadata, $path);
         }
 
         $latitude = $this->coordinate($exif['GPSLatitude'] ?? null, $exif['GPSLatitudeRef'] ?? null);
@@ -33,10 +35,28 @@ final class MetadataExtractor
             && abs($latitude) <= 90 && abs($longitude) <= 180
             && ($latitude != 0.0 || $longitude != 0.0);
 
-        return new MediaMetadata(
-            takenAt: $this->takenAt($exif),
+        $takenAt = $this->takenAt($exif);
+
+        return $this->withFileDate(new MediaMetadata(
+            takenAt: $takenAt,
             latitude: $located ? $latitude : null,
             longitude: $located ? $longitude : null,
+            dateSource: $takenAt ? MediaMetadata::SOURCE_EXIF : null,
+        ), $path);
+    }
+
+    /** Sans date de prise de vue, la date du fichier en tient lieu. */
+    private function withFileDate(MediaMetadata $metadata, string $path): MediaMetadata
+    {
+        if ($metadata->takenAt !== null || ($modified = @filemtime($path)) === false) {
+            return $metadata;
+        }
+
+        return new MediaMetadata(
+            takenAt: CarbonImmutable::createFromTimestampUTC($modified),
+            latitude: $metadata->latitude,
+            longitude: $metadata->longitude,
+            dateSource: MediaMetadata::SOURCE_FILE,
         );
     }
 

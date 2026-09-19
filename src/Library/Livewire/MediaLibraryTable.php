@@ -4,6 +4,9 @@ namespace CharlesStOlive\FilamentOrchestrator\Library\Livewire;
 
 use Carbon\CarbonImmutable;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaUploadAction;
+use CharlesStOlive\FilamentOrchestrator\Library\LibraryAction;
+use CharlesStOlive\FilamentOrchestrator\Library\LibraryContext;
+use CharlesStOlive\FilamentOrchestrator\Library\MediaMetadata;
 use CharlesStOlive\FilamentOrchestrator\Library\TagLabels;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryTag;
@@ -99,6 +102,13 @@ class MediaLibraryTable extends TableComponent
     #[On(MediaUploadAction::UPDATED_EVENT)]
     public function refreshLibrary(): void {}
 
+    /** Dans quelle bibliothèque, et au service de quoi, les actions s'exécutent. */
+    #[Computed]
+    public function libraryContext(): LibraryContext
+    {
+        return new LibraryContext($this->orchestration, $this->focusTags);
+    }
+
     #[Computed]
     public function orchestration(): Orchestration
     {
@@ -141,6 +151,7 @@ class MediaLibraryTable extends TableComponent
                             'size' => $this->currentSize(),
                             'tags' => $this->visibleTags($record),
                             'tagLabels' => $this->tagLabels($record),
+                            'marks' => $this->marksOf($record),
                         ]),
                 ]),
             ])
@@ -401,8 +412,15 @@ class MediaLibraryTable extends TableComponent
                 $this->tagSelect('tags', 'Tags'),
             ])
             ->action(function (LibraryMedia $record, array $data): void {
+                $takenAt = filled($data['taken_at'] ?? null) ? CarbonImmutable::parse($data['taken_at']) : null;
+
+                // Une date changée à la main n'est plus « celle du fichier » : elle devient fiable.
+                if ($takenAt !== null && ($record->taken_at === null || ! $takenAt->equalTo($record->taken_at))) {
+                    $record->setCustomProperty('date_source', MediaMetadata::SOURCE_MANUAL);
+                }
+
                 $record->forceFill([
-                    'taken_at' => $data['taken_at'] ?? null,
+                    'taken_at' => $takenAt,
                     'latitude' => $data['latitude'] ?? null,
                     'longitude' => $data['longitude'] ?? null,
                 ])->save();
@@ -425,6 +443,7 @@ class MediaLibraryTable extends TableComponent
             ...$this->focusActions(),
             $this->tagAction(),
             $this->untagAction(),
+            ...$this->libraryActionButtons(),
             $this->deleteAction(),
         ])
             ->label('Sélection')
@@ -450,6 +469,59 @@ class MediaLibraryTable extends TableComponent
 
                 $schema?->fill();
             });
+    }
+
+    /**
+     * Les actions ajoutées par l'application (`library.actions`), proposées dans
+     * cette bibliothèque.
+     *
+     * @return array<int, LibraryAction>
+     */
+    private function libraryActions(): array
+    {
+        return collect((array) config('filament-orchestrator.library.actions', []))
+            ->map(fn (string $class): mixed => app($class))
+            ->filter(fn (mixed $action): bool => $action instanceof LibraryAction && $action->appliesTo($this->libraryContext))
+            ->values()
+            ->all();
+    }
+
+    /** Les actions de l'application, comme celles de la sélection : elles portent sur les images cochées. */
+    private function libraryActionButtons(): array
+    {
+        return array_map(
+            fn (LibraryAction $libraryAction): Action => $this->selectionAction('library'.Str::studly($libraryAction->getName()))
+                ->label($libraryAction->getLabel())
+                ->icon($libraryAction->getIcon())
+                ->action(function (Collection $selectedRecords) use ($libraryAction): void {
+                    if ($libraryAction->isSingle() && $selectedRecords->count() !== 1) {
+                        Notification::make()->warning()->title('Cochez une seule image')->send();
+
+                        return;
+                    }
+
+                    $title = $libraryAction->handle($selectedRecords->values(), $this->libraryContext);
+
+                    Notification::make()->success()->title($title ?? $libraryAction->getLabel())->send();
+                    $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+                }),
+            $this->libraryActions(),
+        );
+    }
+
+    /**
+     * Les marques que porte une image : l'icône et le libellé de chaque action de
+     * l'application qui la concerne.
+     *
+     * @return array<int, array{icon: string, label: string}>
+     */
+    private function marksOf(LibraryMedia $media): array
+    {
+        return collect($this->libraryActions())
+            ->filter(fn (LibraryAction $action): bool => $action->marks($media, $this->libraryContext))
+            ->map(fn (LibraryAction $action): array => ['icon' => $action->getIcon(), 'label' => $action->getLabel()])
+            ->values()
+            ->all();
     }
 
     /**

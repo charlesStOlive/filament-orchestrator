@@ -37,6 +37,7 @@ class FilamentOrchestratorServiceProvider extends PackageServiceProvider
             ->hasMigrations([
                 'create_filament_orchestrator_tables',
                 'add_library_columns_to_media_table',
+                'add_sort_to_taggables_table',
             ]);
     }
 

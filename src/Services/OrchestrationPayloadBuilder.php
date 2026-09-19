@@ -75,7 +75,7 @@ class OrchestrationPayloadBuilder
             $data['images'] = [
                 ...($data['images'] ?? []),
                 ...$library->tagged($orchestration, $tags)
-                    ->map(fn ($media): array => $library->payload($media))
+                    ->map(fn ($media, int $index): array => $library->payload($media, header: $index === 0))
                     ->all(),
             ];
         }

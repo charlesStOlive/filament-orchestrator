@@ -57,6 +57,12 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         abort_unless(auth()->check(), 403);
     }
 
+    /** L'icône de l'image d'en-tête, pour la vue. */
+    public function headerIcon(): string
+    {
+        return LibraryImages::HEADER_ICON;
+    }
+
     /** Un envoi ou un rattachement terminé ailleurs : recevoir l'événement rafraîchit les miniatures. */
     #[On(MediaUploadAction::UPDATED_EVENT)]
     public function refreshImages(): void {}
@@ -72,6 +78,19 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     public function images(): Collection
     {
         return (new LibraryImages)->tagged($this->orchestration, $this->tags);
+    }
+
+    /**
+     * Range les images dans l'ordre où on vient de les déposer. La première est
+     * l'en-tête. Des identifiants étrangers à cet ensemble sont ignorés.
+     *
+     * @param  array<int, int|string>  $ids
+     */
+    public function reorder(array $ids): void
+    {
+        (new LibraryImages)->reorder($this->orchestration, $this->tags, $ids);
+
+        $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
     }
 
     public function uploadAction(): Action

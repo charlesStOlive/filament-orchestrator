@@ -56,6 +56,12 @@ return [
          * a readable label to technical tags (e.g. "day:3f9c…" shown as "J1").
          */
         'labelers' => [],
+
+        /*
+         * Classes extending Library\LibraryAction. Each one adds an action to the
+         * selection menu of the library, and can mark images with an icon.
+         */
+        'actions' => [],
     ],
 
     /*

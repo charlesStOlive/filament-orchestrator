@@ -56,7 +56,10 @@ final class LibraryIngestor
     ): LibraryMedia {
         /** @var LibraryMedia $media */
         $media = $adder
-            ->withCustomProperties(array_filter(['source' => $context->source]))
+            ->withCustomProperties(array_filter([
+                'source' => $context->source,
+                'date_source' => $metadata->dateSource,
+            ]))
             ->toMediaCollection(Orchestration::LIBRARY_COLLECTION);
 
         $media->forceFill([

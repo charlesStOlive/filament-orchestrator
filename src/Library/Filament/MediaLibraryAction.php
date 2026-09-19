@@ -7,6 +7,7 @@ use CharlesStOlive\FilamentOrchestrator\Library\Livewire\MediaLibraryTable;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
 use Filament\Actions\Action;
 use Filament\Schemas\Components\Livewire;
+use Filament\Schemas\Components\Section;
 use Filament\Support\Enums\Width;
 
 /**
@@ -47,6 +48,22 @@ class MediaLibraryAction extends Action
         return 'mediaLibrary';
     }
 
+    /**
+     * La table sans cadre ni retrait, quand l'application a les macros
+     * `borderNone()` et `paddingNone()` sur les sections : elle occupe alors toute
+     * la fenêtre au lieu d'y flotter dans un encadré.
+     */
+    private function withoutFrame(Section $section): Section
+    {
+        foreach (['borderNone', 'paddingNone'] as $macro) {
+            if ($section::hasMacro($macro)) {
+                $section->{$macro}();
+            }
+        }
+
+        return $section;
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -60,10 +77,12 @@ class MediaLibraryAction extends Action
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Fermer')
             ->schema(fn (Orchestration $record): array => [
-                Livewire::make(MediaLibraryTable::class, [
-                    'orchestrationId' => $record->getKey(),
-                    'focusTags' => $this->getFocusTags(),
-                ])->key('media-library-'.$record->getKey().'-'.md5(implode('|', $this->getFocusTags()))),
+                $this->withoutFrame(Section::make()->schema([
+                    Livewire::make(MediaLibraryTable::class, [
+                        'orchestrationId' => $record->getKey(),
+                        'focusTags' => $this->getFocusTags(),
+                    ])->key('media-library-'.$record->getKey().'-'.md5(implode('|', $this->getFocusTags()))),
+                ])),
             ]);
     }
 }

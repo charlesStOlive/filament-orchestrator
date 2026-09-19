@@ -1,0 +1,30 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Position d'une image dans l'ensemble que désigne un tag (par exemple les
+ * images d'une journée). Elle est portée par le pivot, pas par l'image : une
+ * même image peut être la première d'une journée et la troisième d'une autre.
+ *
+ * Nulle tant que personne n'a réordonné : les images se suivent alors dans
+ * l'ordre de prise de vue.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table(config('tags.taggable.table_name', 'taggables'), function (Blueprint $table): void {
+            $table->unsignedInteger('sort')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table(config('tags.taggable.table_name', 'taggables'), function (Blueprint $table): void {
+            $table->dropColumn('sort');
+        });
+    }
+};

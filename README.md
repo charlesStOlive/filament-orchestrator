@@ -148,6 +148,47 @@ trier, filtrer et grouper.
 - **Libellés** : un tag technique (`day:3f9c…`) s'affiche par le
   `LibraryTagLabeler` de l'application (« J2 · Arrivée à Lisbonne »).
 
+### Ordre, en-tête et date de repli
+
+- **Ordre d'un ensemble** : les images d'une journée se réordonnent par
+  glisser-déposer dans `TagImagesPanel` (le `x-sortable` natif de Filament). La
+  position est portée par le pivot du tag (colonne `taggables.sort`) : une même
+  image peut être la première d'une journée et la troisième d'une autre. Tant
+  que personne n'a réordonné, les images se suivent dans l'ordre de prise de vue ;
+  une image ajoutée plus tard vient après celles qui ont été placées.
+- **En-tête** : la première image d'un ensemble en est l'en-tête. Le panneau la
+  met en avant, `LibraryImages::header()` la donne, et le payload la marque
+  (`header: true`) dans les images d'un contenu.
+- **Date de repli** : sans date de prise de vue dans l'EXIF, l'image prend la date
+  de son fichier — pour un fichier envoyé par un navigateur, celle de l'envoi.
+  Elle est marquée `date_source = file` (`exif` pour une vraie prise de vue,
+  `manual` quand on l'a corrigée) et `LibraryMedia::hasReliableDate()` la
+  distingue : un tagger ne doit pas s'y fier.
+
+### Actions ajoutées à la bibliothèque
+
+L'application crée ses propres actions en étendant `Library\LibraryAction` et les
+déclare dans `filament-orchestrator.library.actions`. Elles rejoignent le menu de
+la sélection et peuvent marquer d'une icône les images qu'elles concernent :
+
+```php
+class HeaderImageAction extends LibraryAction
+{
+    protected function setUp(): void
+    {
+        $this->name('header')->label('Image d’en-tête')->setIcon('heroicon-s-star')->single();
+    }
+
+    // Proposée seulement depuis une journée, pas dans la bibliothèque générale.
+    public function appliesTo(LibraryContext $context): bool { return $context->hasFocus(); }
+
+    // Cette image porte-t-elle la marque ? Son icône s'affiche alors sur sa carte.
+    public function marks(LibraryMedia $media, LibraryContext $context): bool { /* … */ }
+
+    public function handle(Collection $media, LibraryContext $context): ?string { /* … */ }
+}
+```
+
 Les tags d'une bibliothèque sont rangés sous un type propre à l'orchestration :
 deux voyages ne partagent jamais un tag. La configuration se trouve sous la clé
 `library` ; comme la fusion de config est superficielle, une application qui la

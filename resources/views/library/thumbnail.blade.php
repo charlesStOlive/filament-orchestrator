@@ -38,18 +38,37 @@
         x-bind:class="isRecordSelected('{{ $key }}') ? 'ring-4 ring-inset ring-primary-500 bg-primary-500/25' : ''"
     ></span>
 
-    @if ($small)
-        @if ($tagLabels !== [])
+    {{--
+        En haut à gauche, en colonne : le nombre de tags (petit format seulement,
+        les autres formats nomment leurs tags), puis la marque de chaque action de
+        l'application qui concerne cette image (l'étoile d'une image d'en-tête, par
+        exemple), avec son libellé au survol.
+    --}}
+    <div class="pointer-events-none absolute flex flex-col items-start gap-1 {{ $small ? 'left-1.5 top-1.5' : 'left-2 top-2' }}">
+        @if ($small && $tagLabels !== [])
             <span
                 data-library-tags-mark
                 x-tooltip="{ content: @js(implode(', ', $tagLabels)), theme: $store.theme }"
-                class="{{ $chip }} absolute left-1.5 top-1.5 px-1.5 py-0.5 text-[10px] font-semibold"
+                class="{{ $chip }} pointer-events-auto px-1.5 py-0.5 text-[10px] font-semibold"
             >
                 <x-filament::icon icon="heroicon-m-tag" class="{{ $icon }}" />
                 {{ count($tagLabels) }}
             </span>
         @endif
 
+        @foreach ($marks as $mark)
+            <span
+                data-library-mark
+                aria-label="{{ $mark['label'] }}"
+                x-tooltip="{ content: @js($mark['label']), theme: $store.theme }"
+                class="flex items-center rounded-full bg-primary-600/90 text-white shadow pointer-events-auto {{ $pad }}"
+            >
+                <x-filament::icon icon="{{ $mark['icon'] }}" class="{{ $icon }}" />
+            </span>
+        @endforeach
+    </div>
+
+    @if ($small)
         @if ($media->hasGps())
             <span
                 data-library-gps-mark

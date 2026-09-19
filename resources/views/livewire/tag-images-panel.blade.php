@@ -16,15 +16,40 @@
             Aucune image pour l’instant. Envoyez-en, ou rattachez-en depuis la bibliothèque.
         </p>
     @else
-        <div class="flex flex-wrap gap-2">
+        {{--
+            Glisser-déposer natif de Filament (x-sortable) : l'ordre est enregistré
+            au dépôt. La première image est l'en-tête, accentuée.
+        --}}
+        <div
+            data-library-sortable
+            x-sortable
+            x-on:end.stop="$wire.reorder($event.target.sortable.toArray())"
+            class="flex flex-wrap gap-2"
+        >
             @foreach ($this->images as $media)
-                <div class="group relative" wire:key="tag-image-{{ $media->getKey() }}">
+                <div
+                    wire:key="tag-image-{{ $media->getKey() }}"
+                    x-sortable-item="{{ $media->getKey() }}"
+                    x-sortable-handle
+                    @if ($loop->first)
+                        data-library-header
+                        x-tooltip="{ content: 'Image d’en-tête : la première', theme: $store.theme }"
+                    @endif
+                    class="group relative cursor-grab rounded-lg active:cursor-grabbing {{ $loop->first ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : '' }}"
+                >
                     <img
                         src="{{ $media->thumbUrl() }}"
                         alt="{{ $media->name }}"
                         loading="lazy"
+                        draggable="false"
                         class="h-20 w-20 rounded-lg object-cover"
                     />
+
+                    @if ($loop->first)
+                        <span class="pointer-events-none absolute left-1 top-1 flex items-center rounded-full bg-primary-600/90 p-1 text-white shadow">
+                            <x-filament::icon :icon="$this->headerIcon()" class="h-3 w-3" />
+                        </span>
+                    @endif
 
                     <button
                         type="button"
@@ -40,6 +65,12 @@
                 </div>
             @endforeach
         </div>
+
+        @if ($this->images->count() > 1)
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+                Glissez pour réordonner : la première image est l’en-tête.
+            </p>
+        @endif
     @endif
 
     <x-filament-actions::modals />
