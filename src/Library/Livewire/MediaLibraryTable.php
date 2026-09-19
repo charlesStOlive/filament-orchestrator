@@ -32,6 +32,7 @@ use Filament\Tables\TableComponent;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
@@ -129,11 +130,16 @@ class MediaLibraryTable extends TableComponent
                     ]),
                     TextColumn::make('library_tags')
                         ->label('Tags')
-                        ->state(fn (LibraryMedia $record): array => array_map(
-                            $this->tagLabel(...),
-                            $record->tagNames($this->orchestration->libraryTagType()),
-                        ))
+                        ->state(fn (LibraryMedia $record): array => $this->visibleTags($record)['badges'])
                         ->badge()
+                        // « +N » se distingue des vrais tags par sa couleur.
+                        ->color(fn (string $state, LibraryMedia $record): string => $state === ($this->visibleTags($record)['overflow'] ?? null)
+                            ? 'gray'
+                            : 'primary')
+                        // Tous les tags, au survol : la carte n'en montre qu'un.
+                        ->tooltip(fn (LibraryMedia $record): ?string => $this->visibleTags($record)['overflow'] !== null
+                            ? implode(', ', $this->tagLabels($record))
+                            : null)
                         ->placeholder('Sans tag'),
                 ])->space(2),
             ])
@@ -336,7 +342,11 @@ class MediaLibraryTable extends TableComponent
         return Action::make('edit')
             ->label('Modifier')
             ->icon('heroicon-o-pencil-square')
-            ->iconButton()
+            // Toute la carte ouvre cette action, et le crayon est posé sur
+            // l'image (library/thumbnail) : le bouton lui-même n'est pas
+            // affiché. Il doit rester dans le DOM, Filament n'ouvre pas une
+            // action masquée.
+            ->extraAttributes(['class' => 'hidden'])
             ->modalHeading('Modifier l’image')
             ->modalWidth(Width::Large)
             ->fillForm(fn (LibraryMedia $record): array => [
@@ -532,6 +542,37 @@ class MediaLibraryTable extends TableComponent
     private function cleanTags(array $tags): array
     {
         return array_values(array_unique(array_filter(array_map('trim', $tags), 'strlen')));
+    }
+
+    /** @var int Nombre de tags nommés sur la carte ; les autres se cachent derrière « +N ». */
+    private const VISIBLE_TAGS = 1;
+
+    /** Nombre de caractères d'un libellé de tag sur la carte ; le tooltip donne le libellé entier. */
+    private const TAG_BADGE_LENGTH = 18;
+
+    /** @return array<int, string> Les libellés de tous les tags de l'image. */
+    private function tagLabels(LibraryMedia $media): array
+    {
+        return array_map($this->tagLabel(...), $media->tagNames($this->orchestration->libraryTagType()));
+    }
+
+    /**
+     * Ce que la carte affiche de ses tags : les premiers, tronqués, puis un
+     * « +N » pour les autres.
+     *
+     * @return array{badges: array<int, string>, overflow: string|null}
+     */
+    private function visibleTags(LibraryMedia $media): array
+    {
+        $labels = $this->tagLabels($media);
+        $badges = array_map(
+            fn (string $label): string => Str::limit($label, self::TAG_BADGE_LENGTH),
+            array_slice($labels, 0, self::VISIBLE_TAGS),
+        );
+        $hidden = count($labels) - count($badges);
+        $overflow = $hidden > 0 ? '+'.$hidden : null;
+
+        return ['badges' => $overflow === null ? $badges : [...$badges, $overflow], 'overflow' => $overflow];
     }
 
     private function tagLabel(string $tag): string
