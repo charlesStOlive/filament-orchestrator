@@ -160,7 +160,7 @@ class MediaLibraryTable extends TableComponent
                 $this->zoneGroup('zone_fine', 'Zone (environ 1 km)', 2),
                 $this->zoneGroup('zone_large', 'Zone (environ 10 km)', 1),
             ])
-            ->recordActions([$this->editAction()])
+            ->recordActions([$this->editAction(), $this->deleteImageAction()])
             ->recordAction('edit')
             ->selectable()
             ->toolbarActions([
@@ -338,6 +338,38 @@ class MediaLibraryTable extends TableComponent
     | Actions
     |--------------------------------------------------------------------------
     */
+
+    /**
+     * La poubelle d'une carte : elle demande toujours confirmation, et dit où
+     * l'image s'affichait. Comme l'édition, le bouton de la rangée d'actions
+     * n'est pas affiché (la poubelle est posée sur l'image par
+     * library/thumbnail, qui monte cette action), mais il doit rester dans le
+     * DOM : Filament n'ouvre pas une action masquée.
+     */
+    private function deleteImageAction(): Action
+    {
+        return Action::make('deleteImage')
+            ->label('Supprimer')
+            ->icon('heroicon-o-trash')
+            ->color('danger')
+            ->extraAttributes(['class' => 'hidden'])
+            ->requiresConfirmation()
+            ->modalHeading('Supprimer cette image ?')
+            ->modalDescription(function (LibraryMedia $record): string {
+                $usedBy = $this->tagLabels($record);
+
+                return 'Elle disparaît de la bibliothèque'
+                    .($usedBy === [] ? '' : ' et de : '.implode(', ', $usedBy))
+                    .'. Cette action est définitive.';
+            })
+            ->modalSubmitActionLabel('Supprimer')
+            ->action(function (LibraryMedia $record): void {
+                $record->delete();
+
+                Notification::make()->success()->title('Image supprimée')->send();
+                $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+            });
+    }
 
     private function editAction(): Action
     {

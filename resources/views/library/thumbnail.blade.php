@@ -4,8 +4,9 @@
     $date = $media->taken_at?->format('d/m/Y H:i');
     $key = $media->getKey();
     // Puces sur fond sombre : lisibles sur n'importe quelle photo.
-    $chip = 'absolute flex items-center gap-0.5 rounded-full bg-black/55 text-white shadow backdrop-blur-sm';
+    $chip = 'flex items-center gap-0.5 rounded-full bg-black/55 text-white shadow backdrop-blur-sm';
     $icon = $small ? 'h-3 w-3' : 'h-4 w-4';
+    $pad = $small ? 'p-1' : 'p-1.5';
 @endphp
 
 {{--
@@ -14,8 +15,9 @@
     rapport à la carte elle-même (`fi-ta-record`, qui est `relative`). Elle
     donne sa hauteur à la carte, avec un carré de la largeur du contenu.
 
-    Toute la carte ouvre la fiche : le crayon n'est qu'un repère. En petit
-    format il n'y a pas de texte : tags, position et édition se lisent en icônes.
+    Toute la carte ouvre la fiche : le crayon n'est qu'un repère. La poubelle,
+    elle, est un vrai bouton : `.stop` l'empêche d'ouvrir aussi la fiche. En
+    petit format il n'y a pas de texte : tags et position se lisent en icônes.
 --}}
 <div class="aspect-square w-full" data-library-card="{{ $key }}">
     <img
@@ -41,7 +43,7 @@
             <span
                 data-library-tags-mark
                 x-tooltip="{ content: @js(implode(', ', $tagLabels)), theme: $store.theme }"
-                class="{{ $chip }} left-1.5 top-1.5 px-1.5 py-0.5 text-[10px] font-semibold"
+                class="{{ $chip }} absolute left-1.5 top-1.5 px-1.5 py-0.5 text-[10px] font-semibold"
             >
                 <x-filament::icon icon="heroicon-m-tag" class="{{ $icon }}" />
                 {{ count($tagLabels) }}
@@ -52,7 +54,7 @@
             <span
                 data-library-gps-mark
                 x-tooltip="{ content: 'Position GPS', theme: $store.theme }"
-                class="{{ $chip }} bottom-1.5 left-1.5 p-1"
+                class="{{ $chip }} absolute bottom-1.5 left-1.5 p-1"
             >
                 <x-filament::icon icon="heroicon-m-map-pin" class="{{ $icon }}" />
             </span>
@@ -87,10 +89,21 @@
         </div>
     @endif
 
-    <span
-        data-library-edit-mark
-        class="{{ $chip }} pointer-events-none {{ $small ? 'right-1.5 top-1.5 p-1' : 'right-2 top-2 p-1.5' }}"
-    >
-        <x-filament::icon icon="heroicon-m-pencil-square" class="{{ $icon }}" />
-    </span>
+    {{-- Le crayon (repère) puis la poubelle (bouton), en colonne dans le coin. --}}
+    <div class="pointer-events-none absolute flex flex-col gap-1 {{ $small ? 'right-1.5 top-1.5' : 'right-2 top-2' }}">
+        <span data-library-edit-mark class="{{ $chip }} {{ $pad }}">
+            <x-filament::icon icon="heroicon-m-pencil-square" class="{{ $icon }}" />
+        </span>
+
+        <span
+            role="button"
+            data-library-delete-mark
+            aria-label="Supprimer cette image"
+            x-tooltip="{ content: 'Supprimer', theme: $store.theme }"
+            wire:click.stop="mountTableAction('deleteImage', '{{ $key }}')"
+            class="{{ $chip }} {{ $pad }} pointer-events-auto cursor-pointer transition hover:bg-danger-600"
+        >
+            <x-filament::icon icon="heroicon-m-trash" class="{{ $icon }}" />
+        </span>
+    </div>
 </div>
