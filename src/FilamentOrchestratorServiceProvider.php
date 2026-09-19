@@ -6,6 +6,7 @@ use CharlesStOlive\FilamentMap\Models\MapScene;
 use CharlesStOlive\FilamentOrchestrator\Events\ContextualResourceCreated;
 use CharlesStOlive\FilamentOrchestrator\Integrations\MapScenes\MapSceneIntegration;
 use CharlesStOlive\FilamentOrchestrator\Library\Livewire\MediaLibraryTable;
+use CharlesStOlive\FilamentOrchestrator\Library\Livewire\TagImagesPanel;
 use CharlesStOlive\FilamentOrchestrator\Livewire\OrchestrationPlayer;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryTag;
@@ -65,6 +66,7 @@ class FilamentOrchestratorServiceProvider extends PackageServiceProvider
 
         Livewire::component('filament-orchestrator-player', OrchestrationPlayer::class);
         Livewire::component('filament-orchestrator-media-library', MediaLibraryTable::class);
+        Livewire::component('filament-orchestrator-tag-images', TagImagesPanel::class);
 
         $this->publishes([
             __DIR__.'/../resources/js' => public_path('vendor/filament-orchestrator'),

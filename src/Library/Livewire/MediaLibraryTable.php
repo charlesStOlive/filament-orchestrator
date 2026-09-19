@@ -3,6 +3,7 @@
 namespace CharlesStOlive\FilamentOrchestrator\Library\Livewire;
 
 use Carbon\CarbonImmutable;
+use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaUploadAction;
 use CharlesStOlive\FilamentOrchestrator\Library\TagLabels;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryTag;
@@ -35,6 +36,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 
 /**
  * Gestion de la bibliothèque d'images d'une orchestration : une grille de
@@ -51,9 +53,21 @@ class MediaLibraryTable extends TableComponent
     #[Locked]
     public int $orchestrationId;
 
-    public function mount(int $orchestrationId): void
+    /**
+     * Tags « au service » desquels la bibliothèque est ouverte (ceux d'une
+     * journée, par exemple) : l'envoi les pose, et des actions par lot y
+     * rattachent ou en retirent des images. Vide, c'est la bibliothèque seule.
+     *
+     * @var array<int, string>
+     */
+    #[Locked]
+    public array $focusTags = [];
+
+    /** @param array<int, string> $focusTags */
+    public function mount(int $orchestrationId, array $focusTags = []): void
     {
         $this->orchestrationId = $orchestrationId;
+        $this->focusTags = array_values(array_filter($focusTags, 'is_string'));
 
         // Échoue tôt (404) plutôt qu'à l'affichage de la table.
         $this->orchestration();
@@ -63,6 +77,10 @@ class MediaLibraryTable extends TableComponent
     {
         abort_unless(auth()->check(), 403);
     }
+
+    /** Un envoi terminé ailleurs : le simple fait de recevoir l'événement rafraîchit la grille. */
+    #[On(MediaUploadAction::UPDATED_EVENT)]
+    public function refreshLibrary(): void {}
 
     #[Computed]
     public function orchestration(): Orchestration
@@ -132,10 +150,18 @@ class MediaLibraryTable extends TableComponent
                 $this->zoneGroup('zone_fine', 'Zone (environ 1 km)', 2),
                 $this->zoneGroup('zone_large', 'Zone (environ 10 km)', 1),
             ])
+            ->headerActions([
+                MediaUploadAction::make('upload')
+                    ->record($this->orchestration)
+                    ->tags($this->focusTags)
+                    ->source('library')
+                    ->label('Ajouter des images'),
+            ])
             ->recordActions([$this->editAction()])
             ->recordAction('edit')
             ->toolbarActions([
                 BulkActionGroup::make([
+                    ...$this->focusActions(),
                     $this->tagAction(),
                     $this->untagAction(),
                     DeleteBulkAction::make()->label('Supprimer les images'),
@@ -161,6 +187,8 @@ class MediaLibraryTable extends TableComponent
     private function filters(): array
     {
         return [
+            ...$this->focusFilters(),
+
             Filter::make('taken_at')
                 ->label('Date de prise de vue')
                 ->schema([
@@ -340,6 +368,63 @@ class MediaLibraryTable extends TableComponent
 
                 $record->syncTagsWithType($this->cleanTags($data['tags'] ?? []), $this->orchestration->libraryTagType());
             });
+    }
+
+    /**
+     * Rattacher des images au service courant (à une journée) ou les en retirer.
+     *
+     * @return array<int, BulkAction>
+     */
+    private function focusActions(): array
+    {
+        if ($this->focusTags === []) {
+            return [];
+        }
+
+        $label = $this->focusLabel();
+
+        return [
+            BulkAction::make('addToFocus')
+                ->label('Ajouter à : '.$label)
+                ->icon('heroicon-o-plus-circle')
+                ->action(function (Collection $records): void {
+                    $records->each(fn (LibraryMedia $media) => $media->attachTags($this->focusTags, $this->orchestration->libraryTagType()));
+
+                    Notification::make()->success()->title($records->count().' image(s) ajoutée(s)')->send();
+                    $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+                })
+                ->deselectRecordsAfterCompletion(),
+            BulkAction::make('removeFromFocus')
+                ->label('Retirer de : '.$label)
+                ->icon('heroicon-o-minus-circle')
+                ->action(function (Collection $records): void {
+                    $records->each(fn (LibraryMedia $media) => $media->detachTags($this->focusTags, $this->orchestration->libraryTagType()));
+
+                    Notification::make()->success()->title($records->count().' image(s) retirée(s)')->send();
+                    $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+                })
+                ->deselectRecordsAfterCompletion(),
+        ];
+    }
+
+    /** @return array<int, Filter> */
+    private function focusFilters(): array
+    {
+        if ($this->focusTags === []) {
+            return [];
+        }
+
+        return [
+            Filter::make('in_focus')
+                ->label('Seulement : '.$this->focusLabel())
+                ->toggle()
+                ->query(fn (Builder $query): Builder => $query->withAnyTags($this->focusTags, $this->orchestration->libraryTagType())),
+        ];
+    }
+
+    private function focusLabel(): string
+    {
+        return implode(', ', array_map($this->tagLabel(...), $this->focusTags));
     }
 
     private function tagAction(): BulkAction

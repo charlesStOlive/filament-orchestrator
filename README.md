@@ -128,10 +128,21 @@ trier, filtrer et grouper.
   `IngestContext` (par exemple le tag de la journée depuis laquelle on
   envoie) et ceux des `LibraryTagger` listés dans
   `filament-orchestrator.library.taggers`.
+- **Envoyer** : `MediaUploadAction` est l'uploader, distinct de la gestion. Il
+  verse des images dans la bibliothèque et pose les tags qu'on lui donne :
+  `MediaUploadAction::make()->record($voyage)->tags(['day:3f9c…'])`. Il émet
+  ensuite l'événement Livewire `orchestrator-library-updated`, que les
+  composants qui affichent la bibliothèque écoutent pour se rafraîchir.
 - **Gérer** : `MediaLibraryAction` ouvre `MediaLibraryTable`, une grille de
   cartes avec filtres (date, tags, GPS, autour d'un point), groupements (date,
   zone) et actions groupées de tag. Elle s'ajoute comme n'importe quelle
   action : `MediaLibraryAction::make()->record($this->record)`.
+- **Version légère** : `TagImagesPanel` est un composant Livewire à glisser
+  dans l'écran d'un contenu (une journée, une introduction) : les images qui
+  portent ses tags, un envoi qui les étiquette d'emblée, et un accès à la
+  bibliothèque complète — ouverte « au service » de ces tags avec
+  `MediaLibraryAction::make()->focusTags([...])` — pour en rattacher d'autres
+  par lot ou n'afficher que celles de la journée.
 - **Lire** : `Library\LibraryImages` retrouve les images d'un voyage par tag,
   en une seule requête ; c'est ce que consomme `OrchestrationPayloadBuilder`.
 - **Libellés** : un tag technique (`day:3f9c…`) s'affiche par le
