@@ -9,14 +9,13 @@ use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryTag;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
 use Filament\Actions\Action;
-use Filament\Actions\BulkAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Schema;
 use Filament\Support\Enums\TextSize;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\IconColumn;
@@ -24,7 +23,6 @@ use Filament\Tables\Columns\Layout\Split;
 use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
-use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -143,29 +141,28 @@ class MediaLibraryTable extends TableComponent
             ->defaultSort('taken_at')
             ->paginated([24, 48, 96])
             ->defaultPaginationPageOption(48)
-            ->filters($this->filters(), layout: FiltersLayout::AboveContentCollapsible)
-            ->filtersFormColumns(4)
+            // Tout tient sur une ligne : les filtres et le groupement sont des
+            // menus déroulants de la barre d'outils, à côté de l'envoi et de
+            // la sélection. La grille n'ajoute que sa ligne de tri.
+            ->filters($this->filters())
+            ->filtersFormColumns(2)
+            ->filtersFormWidth(Width::TwoExtraLarge)
+            ->groupingSettingsInDropdownOnDesktop()
             ->groups([
                 $this->dateGroup(),
                 $this->zoneGroup('zone_fine', 'Zone (environ 1 km)', 2),
                 $this->zoneGroup('zone_large', 'Zone (environ 10 km)', 1),
             ])
-            ->headerActions([
+            ->recordActions([$this->editAction()])
+            ->recordAction('edit')
+            ->selectable()
+            ->toolbarActions([
                 MediaUploadAction::make('upload')
                     ->record($this->orchestration)
                     ->tags($this->focusTags)
                     ->source('library')
                     ->label('Ajouter des images'),
-            ])
-            ->recordActions([$this->editAction()])
-            ->recordAction('edit')
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    ...$this->focusActions(),
-                    $this->tagAction(),
-                    $this->untagAction(),
-                    DeleteBulkAction::make()->label('Supprimer les images'),
-                ]),
+                $this->selectionActions(),
             ])
             ->emptyStateHeading('Aucune image')
             ->emptyStateDescription('Les images envoyées pour ce voyage apparaissent ici.')
@@ -371,9 +368,50 @@ class MediaLibraryTable extends TableComponent
     }
 
     /**
+     * Le menu de la sélection : toujours visible dans la barre d'outils.
+     *
+     * Ce sont des actions ordinaires qui lisent la sélection
+     * (`accessSelectedRecords()`), et non des BulkAction, que Filament ne
+     * montre qu'une fois une case cochée : le menu reste à sa place, et
+     * chaque action prévient si rien n'est coché.
+     */
+    private function selectionActions(): ActionGroup
+    {
+        return ActionGroup::make([
+            ...$this->focusActions(),
+            $this->tagAction(),
+            $this->untagAction(),
+            $this->deleteAction(),
+        ])
+            ->label('Sélection')
+            ->icon('heroicon-m-ellipsis-vertical')
+            ->button()
+            ->color('gray')
+            ->labeledFrom('sm')
+            ->dropdownPlacement('bottom-start');
+    }
+
+    /** Une action qui porte sur les images cochées, et refuse de s'ouvrir si aucune ne l'est. */
+    private function selectionAction(string $name): Action
+    {
+        return Action::make($name)
+            ->accessSelectedRecords()
+            ->deselectRecordsAfterCompletion()
+            ->mountUsing(function (Action $action, ?Schema $schema, Collection $selectedRecords): void {
+                if ($selectedRecords->isEmpty()) {
+                    Notification::make()->warning()->title('Cochez d’abord des images')->send();
+
+                    $action->halt();
+                }
+
+                $schema?->fill();
+            });
+    }
+
+    /**
      * Rattacher des images au service courant (à une journée) ou les en retirer.
      *
-     * @return array<int, BulkAction>
+     * @return array<int, Action>
      */
     private function focusActions(): array
     {
@@ -384,26 +422,24 @@ class MediaLibraryTable extends TableComponent
         $label = $this->focusLabel();
 
         return [
-            BulkAction::make('addToFocus')
+            $this->selectionAction('addToFocus')
                 ->label('Ajouter à : '.$label)
                 ->icon('heroicon-o-plus-circle')
-                ->action(function (Collection $records): void {
-                    $records->each(fn (LibraryMedia $media) => $media->attachTags($this->focusTags, $this->orchestration->libraryTagType()));
+                ->action(function (Collection $selectedRecords): void {
+                    $selectedRecords->each(fn (LibraryMedia $media) => $media->attachTags($this->focusTags, $this->orchestration->libraryTagType()));
 
-                    Notification::make()->success()->title($records->count().' image(s) ajoutée(s)')->send();
+                    Notification::make()->success()->title($selectedRecords->count().' image(s) ajoutée(s)')->send();
                     $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
-                })
-                ->deselectRecordsAfterCompletion(),
-            BulkAction::make('removeFromFocus')
+                }),
+            $this->selectionAction('removeFromFocus')
                 ->label('Retirer de : '.$label)
                 ->icon('heroicon-o-minus-circle')
-                ->action(function (Collection $records): void {
-                    $records->each(fn (LibraryMedia $media) => $media->detachTags($this->focusTags, $this->orchestration->libraryTagType()));
+                ->action(function (Collection $selectedRecords): void {
+                    $selectedRecords->each(fn (LibraryMedia $media) => $media->detachTags($this->focusTags, $this->orchestration->libraryTagType()));
 
-                    Notification::make()->success()->title($records->count().' image(s) retirée(s)')->send();
+                    Notification::make()->success()->title($selectedRecords->count().' image(s) retirée(s)')->send();
                     $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
-                })
-                ->deselectRecordsAfterCompletion(),
+                }),
         ];
     }
 
@@ -427,36 +463,51 @@ class MediaLibraryTable extends TableComponent
         return implode(', ', array_map($this->tagLabel(...), $this->focusTags));
     }
 
-    private function tagAction(): BulkAction
+    private function tagAction(): Action
     {
-        return BulkAction::make('tag')
+        return $this->selectionAction('tag')
             ->label('Ajouter des tags')
             ->icon('heroicon-o-tag')
             ->schema([$this->tagSelect('tags', 'Tags à ajouter')->required()])
-            ->action(function (Collection $records, array $data): void {
+            ->action(function (Collection $selectedRecords, array $data): void {
                 $tags = $this->cleanTags($data['tags']);
 
-                $records->each(fn (LibraryMedia $media) => $media->attachTags($tags, $this->orchestration->libraryTagType()));
+                $selectedRecords->each(fn (LibraryMedia $media) => $media->attachTags($tags, $this->orchestration->libraryTagType()));
 
-                Notification::make()->success()->title($records->count().' image(s) étiquetée(s)')->send();
-            })
-            ->deselectRecordsAfterCompletion();
+                Notification::make()->success()->title($selectedRecords->count().' image(s) étiquetée(s)')->send();
+            });
     }
 
-    private function untagAction(): BulkAction
+    private function untagAction(): Action
     {
-        return BulkAction::make('untag')
+        return $this->selectionAction('untag')
             ->label('Retirer des tags')
             ->icon('heroicon-o-x-circle')
             ->schema([$this->tagSelect('tags', 'Tags à retirer')->required()])
-            ->action(function (Collection $records, array $data): void {
+            ->action(function (Collection $selectedRecords, array $data): void {
                 $tags = $this->cleanTags($data['tags']);
 
-                $records->each(fn (LibraryMedia $media) => $media->detachTags($tags, $this->orchestration->libraryTagType()));
+                $selectedRecords->each(fn (LibraryMedia $media) => $media->detachTags($tags, $this->orchestration->libraryTagType()));
 
-                Notification::make()->success()->title($records->count().' image(s) mise(s) à jour')->send();
-            })
-            ->deselectRecordsAfterCompletion();
+                Notification::make()->success()->title($selectedRecords->count().' image(s) mise(s) à jour')->send();
+            });
+    }
+
+    private function deleteAction(): Action
+    {
+        return $this->selectionAction('delete')
+            ->label('Supprimer les images')
+            ->icon('heroicon-o-trash')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalHeading('Supprimer les images cochées ?')
+            ->modalDescription('Elles disparaissent de la bibliothèque et de toutes les journées où elles s’affichent. Cette action est définitive.')
+            ->action(function (Collection $selectedRecords): void {
+                $selectedRecords->each(fn (LibraryMedia $media) => $media->delete());
+
+                Notification::make()->success()->title($selectedRecords->count().' image(s) supprimée(s)')->send();
+                $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+            });
     }
 
     /**
