@@ -16,12 +16,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\TextSize;
 use Filament\Support\Enums\Width;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\Layout\Split;
 use Filament\Tables\Columns\Layout\Stack;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -73,15 +69,14 @@ class MediaLibraryTable extends TableComponent
 
     /**
      * Les trois tailles. `grid` est le nombre de cartes par ligne selon la
-     * largeur de l'écran — la case à cocher de Filament prend environ 2,5 rem
-     * dans chaque carte, d'où des carrés petits mais pas minuscules — et `tags`
-     * le nombre de tags nommés sur la carte avant le « +N ».
+     * largeur de l'écran, et `tags` le nombre de tags nommés sur la carte avant
+     * le « +N ».
      *
      * @var array<string, array{label: string, hint: string, grid: array<string, int>, tags: int}>
      */
     private const SIZES = [
-        's' => ['label' => 'S', 'hint' => 'Petites vignettes, en icônes', 'grid' => ['default' => 3, 'md' => 6, 'xl' => 8], 'tags' => 0],
-        'm' => ['label' => 'M', 'hint' => 'Vignettes normales', 'grid' => ['default' => 2, 'md' => 3, 'xl' => 4], 'tags' => 1],
+        's' => ['label' => 'S', 'hint' => 'Petites vignettes, en icônes', 'grid' => ['default' => 4, 'md' => 8, 'xl' => 10], 'tags' => 0],
+        'm' => ['label' => 'M', 'hint' => 'Vignettes normales', 'grid' => ['default' => 2, 'md' => 4, 'xl' => 5], 'tags' => 1],
         'l' => ['label' => 'L', 'hint' => 'Grandes vignettes', 'grid' => ['default' => 1, 'md' => 2, 'xl' => 3], 'tags' => 2],
     ];
 
@@ -131,47 +126,23 @@ class MediaLibraryTable extends TableComponent
         return $table
             ->query(fn (): Builder => $this->orchestration->libraryMedia()->getQuery()->with('tags'))
             ->columns([
+                // Toute la carte est dessinée par cette vue : l'image en fond, sous
+                // la case à cocher, et par-dessus la date, la position et les
+                // tags. La colonne porte le nom de la date pour rendre la grille
+                // triable par date de prise de vue. Le Stack, même à un seul
+                // enfant, est ce qui fait de Filament une grille de cartes plutôt
+                // qu'un tableau.
                 Stack::make([
-                    ViewColumn::make('thumbnail')
+                    ViewColumn::make('taken_at')
+                        ->label('Date de prise de vue')
+                        ->sortable()
                         ->view('filament-orchestrator::library.thumbnail')
                         ->viewData(fn (LibraryMedia $record): array => [
                             'size' => $this->currentSize(),
+                            'tags' => $this->visibleTags($record),
                             'tagLabels' => $this->tagLabels($record),
                         ]),
-                    Split::make([
-                        TextColumn::make('taken_at')
-                            ->label('Date de prise de vue')
-                            ->dateTime('d/m/Y H:i')
-                            ->placeholder('Sans date')
-                            ->size(TextSize::ExtraSmall)
-                            ->color('gray')
-                            ->sortable(),
-                        IconColumn::make('gps')
-                            ->label('Position GPS')
-                            ->state(fn (LibraryMedia $record): bool => $record->hasGps())
-                            ->boolean()
-                            ->trueIcon('heroicon-o-map-pin')
-                            ->falseIcon('heroicon-o-map-pin')
-                            ->trueColor('success')
-                            ->falseColor('gray')
-                            ->grow(false),
-                    ])->visible(fn (): bool => $this->currentSize() !== 's'),
-                    TextColumn::make('library_tags')
-                        ->label('Tags')
-                        ->state(fn (LibraryMedia $record): array => $this->visibleTags($record)['badges'])
-                        ->badge()
-                        ->size(TextSize::ExtraSmall)
-                        // « +N » se distingue des vrais tags par sa couleur.
-                        ->color(fn (string $state, LibraryMedia $record): string => $state === ($this->visibleTags($record)['overflow'] ?? null)
-                            ? 'gray'
-                            : 'primary')
-                        // Tous les tags, au survol : la carte n'en montre que quelques-uns.
-                        ->tooltip(fn (LibraryMedia $record): ?string => $this->visibleTags($record)['overflow'] !== null
-                            ? implode(', ', $this->tagLabels($record))
-                            : null)
-                        ->placeholder('Sans tag')
-                        ->visible(fn (): bool => $this->currentSize() !== 's'),
-                ])->space(2),
+                ]),
             ])
             ->contentGrid(fn (): array => self::SIZES[$this->currentSize()]['grid'])
             ->defaultSort('taken_at')
