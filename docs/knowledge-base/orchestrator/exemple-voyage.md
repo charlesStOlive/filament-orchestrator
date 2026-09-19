@@ -10,10 +10,9 @@ Ce scénario ouvre une fiche narrative lorsqu'un visiteur clique sur le hotpoint
 
 ## Préparer les ressources
 
-1. Créez une carte et vérifiez son aperçu.
-2. Créez le point géographique Bangkok avec ses coordonnées.
-3. Rattachez Bangkok à la carte.
-4. Créez un contenu narratif avec le titre et le texte de Bangkok.
+1. Créez une scène cartographique et vérifiez son aperçu.
+2. Créez le point géographique Bangkok avec ses coordonnées. Il n'a besoin d'être rattaché à aucune carte à ce stade : ce sera le parcours, plus bas, qui les fera cohabiter.
+3. Créez un contenu narratif avec le titre et le texte de Bangkok.
 
 ## Créer le parcours
 
@@ -26,11 +25,11 @@ Ce scénario ouvre une fiche narrative lorsqu'un visiteur clique sur le hotpoint
 
 Dans les onglets du parcours :
 
-1. Rattachez la carte avec le rôle **Carte** et la clé `carte-principale`.
+1. Rattachez la scène avec le rôle **Scène cartographique** et la clé `carte-principale`.
 2. Rattachez Bangkok avec le rôle **Hotpoint** et la clé `bangkok`.
 3. Rattachez la fiche avec le rôle **Contenu** et la clé `bangkok`.
 
-Les deux éléments peuvent partager la même clé car leurs rôles sont différents. Ce choix facilite la lecture du scénario.
+Le hotpoint et le contenu peuvent partager la même clé car leurs rôles sont différents. Ce choix facilite la lecture du scénario. C'est précisément ici, en rattachant la scène et le hotpoint au même parcours, que Bangkok devient visible dessus : aucun des deux enregistrements ne porte cette relation lui-même.
 
 ## Créer le déclencheur
 
@@ -49,7 +48,7 @@ Les deux éléments peuvent partager la même clé car leurs rôles sont différ
 
 ## Tester
 
-1. Activez la carte, le point, le contenu, leurs nœuds, le déclencheur et l'action.
+1. Activez la scène, le point, le contenu, leurs nœuds, le déclencheur et l'action.
 2. Activez le parcours.
 3. Ouvrez sa page publique.
 4. Cliquez sur Bangkok.
