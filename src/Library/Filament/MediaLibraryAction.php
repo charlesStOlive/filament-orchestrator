@@ -6,7 +6,6 @@ use Closure;
 use CharlesStOlive\FilamentOrchestrator\Library\Livewire\MediaLibraryTable;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
 use Filament\Actions\Action;
-use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Support\Enums\Width;
 
@@ -78,10 +77,7 @@ class MediaLibraryAction extends Action
             ->modalCancelActionLabel('Fermer')
             ->schema(fn (Orchestration $record): array => [
                 $this->withoutFrame(Section::make()->schema([
-                    Livewire::make(MediaLibraryTable::class, [
-                        'orchestrationId' => $record->getKey(),
-                        'focusTags' => $this->getFocusTags(),
-                    ])->key('media-library-'.$record->getKey().'-'.md5(implode('|', $this->getFocusTags()))),
+                    MediaLibraryTable::component($record, $this->getFocusTags()),
                 ])),
             ]);
     }

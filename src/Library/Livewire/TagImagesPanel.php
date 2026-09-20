@@ -2,7 +2,9 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Library\Livewire;
 
+use CharlesStOlive\FilamentOrchestrator\Filament\Split\SidePaneEvent;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaLibraryAction;
+use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaLibrarySidePane;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaUploadAction;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryImages;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
@@ -41,12 +43,22 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     #[Locked]
     public string $heading = 'Images';
 
+    /**
+     * Où s'ouvre la bibliothèque : dans une modale (par défaut), ou dans le volet
+     * latéral de la page qui accueille ce panneau, réglé sur ces tags. Le volet
+     * suppose une page qui en déclare un (HasSidePane) : le panneau le lui demande
+     * par événement, sans la connaître.
+     */
+    #[Locked]
+    public bool $libraryInSidePane = false;
+
     /** @param array<int, string> $tags */
-    public function mount(int $orchestrationId, array $tags = [], string $heading = 'Images'): void
+    public function mount(int $orchestrationId, array $tags = [], string $heading = 'Images', bool $libraryInSidePane = false): void
     {
         $this->orchestrationId = $orchestrationId;
         $this->tags = array_values(array_filter($tags, 'is_string'));
         $this->heading = $heading;
+        $this->libraryInSidePane = $libraryInSidePane;
 
         // Échoue tôt (404) plutôt qu'à l'affichage.
         $this->orchestration();
@@ -105,6 +117,18 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
 
     public function libraryAction(): Action
     {
+        if ($this->libraryInSidePane) {
+            return Action::make('library')
+                ->label('Ouvrir la bibliothèque')
+                ->action(fn () => $this->dispatch(
+                    SidePaneEvent::OPEN,
+                    pane: MediaLibrarySidePane::NAME,
+                    context: ['tags' => $this->tags],
+                ))
+                ->size(Size::Small)
+                ->outlined();
+        }
+
         return MediaLibraryAction::make('library')
             ->record($this->orchestration)
             ->focusTags($this->tags)

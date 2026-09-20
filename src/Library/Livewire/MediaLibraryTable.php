@@ -3,6 +3,8 @@
 namespace CharlesStOlive\FilamentOrchestrator\Library\Livewire;
 
 use Carbon\CarbonImmutable;
+use CharlesStOlive\FilamentOrchestrator\Filament\Split\SidePaneEvent;
+use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaLibrarySidePane;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaUploadAction;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryAction;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryContext;
@@ -18,6 +20,7 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\Layout\Stack;
@@ -63,6 +66,15 @@ class MediaLibraryTable extends TableComponent
     public array $focusTags = [];
 
     /**
+     * Vrai quand la bibliothèque est celle du volet latéral d'une page : elle
+     * change alors de journée sur place, quand la page annonce un nouveau contexte
+     * (voir SidePaneEvent), au lieu d'être remontée — elle garde ses filtres et sa
+     * sélection. Dans une modale, elle garde les tags avec lesquels on l'a ouverte.
+     */
+    #[Locked]
+    public bool $followsSidePane = false;
+
+    /**
      * La taille des vignettes : S, M ou L. Gardée dans la session de
      * l'utilisateur, elle survit à la fermeture de la bibliothèque.
      */
@@ -72,25 +84,69 @@ class MediaLibraryTable extends TableComponent
 
     /**
      * Les trois tailles. `grid` est le nombre de cartes par ligne selon la
-     * largeur de l'écran, et `tags` le nombre de tags nommés sur la carte avant
-     * le « +N ».
+     * largeur de la *bibliothèque* (les clés en « @ » sont des requêtes de
+     * conteneur, voir la vue) et non celle de l'écran : dans le volet d'un tiers
+     * d'une page, la grille se resserre comme dans une modale étroite. `tags` est
+     * le nombre de tags nommés sur la carte avant le « +N ».
      *
      * @var array<string, array{label: string, hint: string, grid: array<string, int>, tags: int}>
      */
     private const SIZES = [
-        's' => ['label' => 'S', 'hint' => 'Petites vignettes, en icônes', 'grid' => ['default' => 4, 'md' => 8, 'xl' => 10], 'tags' => 0],
-        'm' => ['label' => 'M', 'hint' => 'Vignettes normales', 'grid' => ['default' => 2, 'md' => 4, 'xl' => 5], 'tags' => 1],
-        'l' => ['label' => 'L', 'hint' => 'Grandes vignettes', 'grid' => ['default' => 1, 'md' => 2, 'xl' => 3], 'tags' => 2],
+        's' => ['label' => 'S', 'hint' => 'Petites vignettes, en icônes', 'grid' => ['default' => 4, '@sm' => 5, '@2xl' => 8, '@4xl' => 10], 'tags' => 0],
+        'm' => ['label' => 'M', 'hint' => 'Vignettes normales', 'grid' => ['default' => 2, '@sm' => 3, '@2xl' => 4, '@4xl' => 5], 'tags' => 1],
+        'l' => ['label' => 'L', 'hint' => 'Grandes vignettes', 'grid' => ['default' => 1, '@2xl' => 2, '@4xl' => 3], 'tags' => 2],
     ];
 
+    /**
+     * Le composant tel qu'on le glisse dans un schéma Filament — modale
+     * (MediaLibraryAction), volet latéral (MediaLibrarySidePane) ou page.
+     *
+     * En modale, la clé change avec les tags de service : un autre contexte
+     * remonte la bibliothèque à neuf. Dans le volet, la clé est fixe — la
+     * bibliothèque suit les changements de journée par événement.
+     *
+     * @param  array<int, string>  $focusTags
+     */
+    public static function component(Orchestration $orchestration, array $focusTags = [], bool $followsSidePane = false): Livewire
+    {
+        return Livewire::make(static::class, [
+            'orchestrationId' => $orchestration->getKey(),
+            'focusTags' => $focusTags,
+            'followsSidePane' => $followsSidePane,
+        ])->key($followsSidePane
+            ? 'media-library-pane-'.$orchestration->getKey()
+            : 'media-library-'.$orchestration->getKey().'-'.md5(implode('|', $focusTags)));
+    }
+
     /** @param array<int, string> $focusTags */
-    public function mount(int $orchestrationId, array $focusTags = []): void
+    public function mount(int $orchestrationId, array $focusTags = [], bool $followsSidePane = false): void
     {
         $this->orchestrationId = $orchestrationId;
         $this->focusTags = array_values(array_filter($focusTags, 'is_string'));
+        $this->followsSidePane = $followsSidePane;
 
         // Échoue tôt (404) plutôt qu'à l'affichage de la table.
         $this->orchestration();
+    }
+
+    /**
+     * La page annonce sur quoi elle travaille (les tags de la journée ouverte) :
+     * la bibliothèque du volet s'y règle, à la place — « Ajouter à », le filtre
+     * « Seulement » et l'étiquetage des envois suivent la journée.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    #[On(SidePaneEvent::CONTEXT_CHANGED)]
+    public function followSidePaneContext(string $pane, array $context = []): void
+    {
+        if (! $this->followsSidePane || $pane !== MediaLibrarySidePane::NAME) {
+            return;
+        }
+
+        $this->focusTags = array_values(array_filter((array) ($context['tags'] ?? []), 'is_string'));
+
+        // Ce que l'on a calculé des anciens tags est périmé.
+        unset($this->libraryContext, $this->focusLabel);
     }
 
     public function boot(): void
@@ -535,7 +591,7 @@ class MediaLibraryTable extends TableComponent
             return [];
         }
 
-        $label = $this->focusLabel();
+        $label = $this->focusLabel;
 
         return [
             $this->selectionAction('addToFocus')
@@ -568,13 +624,15 @@ class MediaLibraryTable extends TableComponent
 
         return [
             Filter::make('in_focus')
-                ->label('Seulement : '.$this->focusLabel())
+                ->label('Seulement : '.$this->focusLabel)
                 ->toggle()
                 ->query(fn (Builder $query): Builder => $query->withAnyTags($this->focusTags, $this->orchestration->libraryTagType())),
         ];
     }
 
-    private function focusLabel(): string
+    /** Le nom de ce au service de quoi la bibliothèque est ouverte (la journée), pour l'affichage. */
+    #[Computed]
+    public function focusLabel(): string
     {
         return implode(', ', array_map($this->tagLabel(...), $this->focusTags));
     }
