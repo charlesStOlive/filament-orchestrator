@@ -70,11 +70,24 @@ class Orchestration extends Model implements HasMedia
             ->performOnCollections(self::LIBRARY_COLLECTION)
             ->fit(Fit::Crop, 480, 480);
 
+        // Les tailles d'affichage : un original de smartphone pèse plusieurs
+        // Mo, un front ne doit jamais l'envoyer tel quel. Le côté le plus long
+        // est borné, le format de l'image est respecté (pas de recadrage).
+        $medium = $this->addMediaConversion('medium')
+            ->performOnCollections(self::LIBRARY_COLLECTION)
+            ->fit(Fit::Max, 900, 900);
+
+        $large = $this->addMediaConversion('large')
+            ->performOnCollections(self::LIBRARY_COLLECTION)
+            ->fit(Fit::Max, 1800, 1800);
+
         // Par défaut synchrone : sans worker de queue, une vignette mise en
         // file d'attente n'apparaîtrait jamais.
-        config('filament-orchestrator.library.queue_conversions', false)
-            ? $thumb->queued()
-            : $thumb->nonQueued();
+        foreach ([$thumb, $medium, $large] as $conversion) {
+            config('filament-orchestrator.library.queue_conversions', false)
+                ? $conversion->queued()
+                : $conversion->nonQueued();
+        }
     }
 
     /** Les images de la bibliothèque, et elles seules. */

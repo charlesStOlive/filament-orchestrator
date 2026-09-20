@@ -148,10 +148,47 @@ export class OrchestratorInstance {
     }
 
     openContent(node) {
-        if (!node || node.role !== 'content' || !this.contentElement) {
+        if (!node || node.role !== 'content') {
             throw new Error('Le contenu ciblé est introuvable.')
         }
 
+        // Un front qui dessine le contenu à sa façon annule cet événement
+        // (`event.preventDefault()`) : le rendu par défaut ci-dessous n'a alors
+        // pas lieu. Sans écouteur, ou sans rien annuler, rien ne change.
+        const proceed = window.dispatchEvent(new CustomEvent('filament-orchestrator:content-opened', {
+            cancelable: true,
+            detail: {
+                orchestrationId: this.payload.orchestration?.id,
+                scope: this.payload.orchestration?.scope,
+                node,
+                instance: this,
+            },
+        }))
+
+        if (proceed && this.contentElement) {
+            this.renderContent(node)
+        }
+
+        if (this.state.activeContentNodeId && String(this.state.activeContentNodeId) !== String(node.id)) {
+            this.contentHistory.push(this.state.activeContentNodeId)
+        }
+
+        this.state.activeContentNodeId = node.id
+
+        if (proceed && this.contentElement) {
+            this.contentElement.hidden = false
+        }
+
+        this.dispatchEvent({
+            name: 'content.initialized',
+            orchestrationId: this.payload.orchestration?.id,
+            scope: this.payload.orchestration?.scope,
+            source: node,
+            payload: {},
+        })
+    }
+
+    renderContent(node) {
         const content = node.data ?? {}
         this.element.querySelector('[data-orchestrator-content-title]').textContent = content.title ?? content.name ?? ''
         this.element.querySelector('[data-orchestrator-content-body]').textContent = content.body ?? ''
@@ -191,20 +228,6 @@ export class OrchestratorInstance {
             }))
             buttonsElement.appendChild(button)
         }
-
-        if (this.state.activeContentNodeId && String(this.state.activeContentNodeId) !== String(node.id)) {
-            this.contentHistory.push(this.state.activeContentNodeId)
-        }
-
-        this.state.activeContentNodeId = node.id
-        this.contentElement.hidden = false
-        this.dispatchEvent({
-            name: 'content.initialized',
-            orchestrationId: this.payload.orchestration?.id,
-            scope: this.payload.orchestration?.scope,
-            source: node,
-            payload: {},
-        })
     }
 
     hideContent(userInitiated = false) {

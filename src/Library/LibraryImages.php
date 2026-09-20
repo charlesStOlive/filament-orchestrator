@@ -137,11 +137,18 @@ final class LibraryImages
      */
     public function payload(LibraryMedia $media, bool $header = false): array
     {
+        $dimensions = $media->dimensions();
+
         return [
             'url' => $media->getUrl(),
             'thumb' => $media->thumbUrl(),
+            'medium' => $media->conversionUrl('medium'),
+            'large' => $media->conversionUrl('large'),
+            'width' => $dimensions['width'] ?? null,
+            'height' => $dimensions['height'] ?? null,
             'name' => $media->name,
             'alt' => $media->getCustomProperty('alt', $media->name),
+            'caption' => $media->getCustomProperty('caption'),
             'header' => $header,
         ];
     }

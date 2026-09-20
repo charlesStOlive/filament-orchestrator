@@ -38,6 +38,51 @@ class LibraryMedia extends Media
         return $this->hasGeneratedConversion('thumb') ? $this->getUrl('thumb') : $this->getUrl();
     }
 
+    /** Une taille d'affichage quand elle existe (sinon l'original, le temps qu'elle soit générée). */
+    public function conversionUrl(string $conversion): string
+    {
+        return $this->hasGeneratedConversion($conversion) ? $this->getUrl($conversion) : $this->getUrl();
+    }
+
+    /**
+     * Largeur et hauteur de l'image telle qu'elle s'affiche, ou null quand on
+     * ne peut pas les lire (disque distant, fichier absent).
+     *
+     * Elles sont lues sur la plus grande conversion — déjà orientée selon
+     * l'EXIF, contrairement à l'original — puis gardées dans les propriétés
+     * du média : la lecture d'une page ne rouvre plus jamais un fichier.
+     *
+     * @return array{width: int, height: int}|null
+     */
+    public function dimensions(): ?array
+    {
+        $width = (int) $this->getCustomProperty('width', 0);
+        $height = (int) $this->getCustomProperty('height', 0);
+
+        if ($width > 0 && $height > 0) {
+            return ['width' => $width, 'height' => $height];
+        }
+
+        $conversion = $this->hasGeneratedConversion('large') ? 'large' : null;
+        $path = $this->getPath($conversion ?? '');
+        $size = is_file($path) ? @getimagesize($path) : false;
+
+        if ($size === false || $size[0] < 1 || $size[1] < 1) {
+            return null;
+        }
+
+        // Sans conversion, l'original peut porter une orientation EXIF qui
+        // échange largeur et hauteur : on ne mémorise alors rien de fiable.
+        if ($conversion === null) {
+            return ['width' => $size[0], 'height' => $size[1]];
+        }
+
+        $this->setCustomProperty('width', $size[0])->setCustomProperty('height', $size[1]);
+        $this->saveQuietly();
+
+        return ['width' => $size[0], 'height' => $size[1]];
+    }
+
     /** Les tags, avec leur position dans l'ensemble qu'ils désignent (voir la colonne `sort` du pivot). */
     public function tags(): MorphToMany
     {

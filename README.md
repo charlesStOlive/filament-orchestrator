@@ -145,6 +145,16 @@ trier, filtrer et grouper.
   par lot ou n'afficher que celles de la journée.
 - **Lire** : `Library\LibraryImages` retrouve les images d'un voyage par tag,
   en une seule requête ; c'est ce que consomme `OrchestrationPayloadBuilder`.
+- **Tailles d'affichage** : chaque image reçoit, en plus de la vignette carrée
+  `thumb`, deux conversions qui gardent son format — `medium` (900 px) et
+  `large` (1800 px) — pour qu'un front n'envoie jamais l'original d'un
+  smartphone. Le payload d'une image porte `url`, `thumb`, `medium`, `large`
+  (l'original tant qu'une conversion n'est pas générée), ses `width` et
+  `height` telles qu'elles s'affichent, sa légende (propriété `caption`) et
+  `alt`. Les dimensions sont lues une fois sur la conversion `large` puis
+  gardées dans les propriétés du média (`LibraryMedia::dimensions()`). Pour des
+  images entrées avant ces conversions :
+  `artisan media-library:regenerate --only=medium --only=large`.
 - **Libellés** : un tag technique (`day:3f9c…`) s'affiche par le
   `LibraryTagLabeler` de l'application (« J2 · Arrivée à Lisbonne »).
 
@@ -213,6 +223,30 @@ ordonnables et éditables individuellement.
 ```
 
 ## Extension JavaScript
+
+### Dessiner soi-même un contenu
+
+À chaque ouverture d'un contenu — clic sur un point, action `content.open` ou
+`content.next`, démarrage du parcours — le moteur émet sur `window` l'événement
+**annulable** `filament-orchestrator:content-opened`
+(`detail: { orchestrationId, scope, node, instance }`). Sans écouteur, il écrit
+son panneau par défaut, comme avant. Un front qui a sa propre mise en page
+l'annule, et le moteur n'écrit alors rien :
+
+```js
+window.addEventListener('filament-orchestrator:content-opened', (event) => {
+    event.preventDefault()
+    afficher(event.detail.node.data) // title, body, images, buttons
+})
+```
+
+Le moteur retient le contenu actif et émet `content.initialized` dans les deux
+cas, et il n'exige plus le panneau par défaut : une page qui n'inclut que la
+carte peut ouvrir des contenus. `instance.openContent(node)` et
+`instance.mapCommand(...)` sont l'API publique pour passer d'une étape à l'autre
+depuis un bouton de la page.
+
+### Ajouter une action
 
 Les actions sont exécutées par un registre. Une application peut ajouter une
 action sans modifier le package :
