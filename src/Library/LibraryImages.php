@@ -128,6 +128,26 @@ final class LibraryImages
     }
 
     /**
+     * Fait de cette image la seule de l'ensemble que désignent ces tags : les autres le quittent (elles restent dans la
+     * bibliothèque). C'est le cas d'un ensemble d'une image, comme celle de « une » d'une période.
+     *
+     * @param  array<int, string>  $tags
+     */
+    public function replace(Orchestration $orchestration, array $tags, LibraryMedia $media): void
+    {
+        $type = $orchestration->libraryTagType();
+
+        foreach ($this->tagged($orchestration, $tags) as $other) {
+            if (! $other->is($media)) {
+                $other->detachTags($tags, $type);
+            }
+        }
+
+        $media->attachTags($tags, $type);
+        unset($this->libraries[$orchestration->getKey()]);
+    }
+
+    /**
      * Fait de cette image l'en-tête de l'ensemble : la première, les autres
      * gardant leur ordre.
      *

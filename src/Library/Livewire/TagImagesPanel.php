@@ -53,13 +53,53 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     #[Locked]
     public bool $libraryInSidePane = false;
 
-    /** @param array<int, string> $tags */
-    public function mount(int $orchestrationId, array $tags = [], string $heading = 'Images', bool $libraryInSidePane = false): void
-    {
+    /**
+     * Un ensemble d'une seule image (l'image de « une » d'une période, par exemple) : ajouter une image remplace
+     * celle qui y est, on ne réordonne rien et les images n'y ont ni numéro ni clé de référence — le texte d'un
+     * contenu ne les désigne pas.
+     */
+    #[Locked]
+    public bool $single = false;
+
+    /**
+     * Les tags de l'image de « une » de l'ensemble que ce panneau montre. Quand il y en a, la première image
+     * porte l'étoile tant qu'aucune n'est choisie : c'est elle qui en tient lieu.
+     *
+     * @var array<int, string>
+     */
+    #[Locked]
+    public array $coverTags = [];
+
+    /**
+     * Les tags sur lesquels la bibliothèque s'ouvre, quand ce ne sont pas ceux du panneau (l'image de « une »
+     * se choisit dans la bibliothèque de la période, pas dans un ensemble à part).
+     *
+     * @var array<int, string>
+     */
+    #[Locked]
+    public array $libraryTags = [];
+
+    /**
+     * @param  array<int, string>  $tags
+     * @param  array<int, string>  $coverTags
+     * @param  array<int, string>  $libraryTags
+     */
+    public function mount(
+        int $orchestrationId,
+        array $tags = [],
+        string $heading = 'Images',
+        bool $libraryInSidePane = false,
+        bool $single = false,
+        array $coverTags = [],
+        array $libraryTags = [],
+    ): void {
         $this->orchestrationId = $orchestrationId;
         $this->tags = array_values(array_filter($tags, 'is_string'));
         $this->heading = $heading;
         $this->libraryInSidePane = $libraryInSidePane;
+        $this->single = $single;
+        $this->coverTags = array_values(array_filter($coverTags, 'is_string'));
+        $this->libraryTags = array_values(array_filter($libraryTags, 'is_string'));
 
         // Échoue tôt (404) plutôt qu'à l'affichage.
         $this->orchestration();
@@ -90,7 +130,19 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     #[Computed]
     public function images(): Collection
     {
-        return (new LibraryImages)->tagged($this->orchestration, $this->tags);
+        $images = (new LibraryImages)->tagged($this->orchestration, $this->tags);
+
+        return $this->single ? $images->take(1)->values() : $images;
+    }
+
+    /** La première image tient lieu d'image de « une » : il y en a une à désigner, et aucune n'est choisie. */
+    #[Computed]
+    public function firstIsFallbackCover(): bool
+    {
+        return ! $this->single
+            && $this->coverTags !== []
+            && $this->images->isNotEmpty()
+            && (new LibraryImages)->tagged($this->orchestration, $this->coverTags)->isEmpty();
     }
 
     /**
@@ -115,7 +167,19 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     {
         $image = $this->tags === [] ? null : $this->orchestration->libraryMedia()->find($media);
 
-        if ($image === null || ! (new LibraryImages)->append($this->orchestration, $this->tags, $image)) {
+        if ($image === null) {
+            return;
+        }
+
+        if ($this->single) {
+            $current = (new LibraryImages)->tagged($this->orchestration, $this->tags)->first();
+
+            if ($current?->is($image)) {
+                return;
+            }
+
+            (new LibraryImages)->replace($this->orchestration, $this->tags, $image);
+        } elseif (! (new LibraryImages)->append($this->orchestration, $this->tags, $image)) {
             return;
         }
 
@@ -146,7 +210,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
                 ->action(fn () => $this->dispatch(
                     SidePaneEvent::OPEN,
                     pane: MediaLibrarySidePane::NAME,
-                    context: ['tags' => $this->tags],
+                    context: ['tags' => $this->libraryTags ?: $this->tags],
                 ))
                 ->size(Size::Small)
                 ->outlined();
@@ -154,7 +218,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
 
         return MediaLibraryAction::make('library')
             ->record($this->orchestration)
-            ->focusTags($this->tags)
+            ->focusTags($this->libraryTags ?: $this->tags)
             ->label('Ouvrir la bibliothèque')
             ->size(Size::Small)
             ->outlined();
