@@ -34,7 +34,7 @@
 
     {{--
         Une vignette se glisse aussi vers le texte de la période, où elle écrit sa référence : elle porte la même donnée
-        qu'une carte de la bibliothèque (clé de l'image et du voyage). Sans cela, SortableJS y mettrait le texte de
+        qu'une carte de la bibliothèque (clé, genre, voyage). Sans cela, SortableJS y mettrait le texte de
         l'élément — ses espaces et son numéro —, que l'éditeur déposerait tel quel, en autant de paragraphes. Le marqueur
         `-panel` dit à la case de dépôt que ce glisser vient d'ici : elle n'a rien à en faire.
     --}}
@@ -43,7 +43,7 @@
             data-library-sortable
             x-sortable
             x-init="$nextTick(() => $el.sortable?.option('setData', (dataTransfer, dragEl) => {
-                dataTransfer.setData(@js($this->dragType()), JSON.stringify({ media: Number(dragEl.getAttribute('x-sortable-item')), orchestration: {{ $orchestrationId }}, kind: dragEl.dataset.libraryKind }))
+                dataTransfer.setData(@js($this->dragType()), JSON.stringify({ orchestration: {{ $orchestrationId }}, items: [{ media: Number(dragEl.getAttribute('x-sortable-item')), kind: dragEl.dataset.libraryKind }] }))
                 dataTransfer.setData(@js($this->dragType().'-panel'), '1')
             }))"
             x-on:end.stop="$wire.reorder($event.target.sortable.toArray())"
@@ -142,7 +142,11 @@
                     const raw = $event.dataTransfer.getData(@js($this->dragType()))
                     if (! raw) return
                     $event.preventDefault()
-                    try { $wire.attachMedia(Number(JSON.parse(raw).media)) } catch (e) {}
+                    try {
+                        const drag = JSON.parse(raw)
+                        const ids = (drag.items ?? [drag]).map((item) => Number(item.media)).filter((id) => id > 0)
+                        if (ids.length) $wire.attachMedia(ids)
+                    } catch (e) {}
                 "
                 x-bind:class="over ? 'border-primary-500 bg-primary-50 text-primary-600 dark:bg-primary-500/10' : 'border-gray-300 text-gray-400 dark:border-white/20'"
                 class="flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed text-center text-[11px] font-medium leading-tight transition hover:border-primary-500 hover:text-primary-600"

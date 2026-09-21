@@ -1,7 +1,8 @@
 /*
  * La référence à une image de la bibliothèque dans le RichEditor
  * (voir resources/js/rich-editor/library-image.js) : un chip qui se tient dans la
- * ligne comme un caractère — l'icône d'une photo, sa miniature, son numéro actuel.
+ * ligne comme un caractère — l'icône du genre (photo ou lecture) puis, pour chaque fichier
+ * désigné, sa miniature (une image) et son numéro actuel.
  *
  * Chaque pièce a une taille bornée en `em` : le chip suit la taille du texte et ne
  * peut pas s'étaler (une image ou un SVG sans taille prendrait toute la ligne). Le
@@ -56,6 +57,28 @@
 
 .library-image-ref .library-image-ref__thumb[hidden] {
     display: none;
+}
+
+.library-image-ref__items {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    min-width: 0;
+}
+
+/* Un fichier de la référence : sa miniature (une image) et son numéro. Orphelin, il passe au rouge tout seul. */
+.library-image-ref__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
+}
+
+.library-image-ref__item.is-orphan {
+    color: var(--color-danger-700, #b91c1c);
+}
+
+.dark .library-image-ref__item.is-orphan {
+    color: var(--color-danger-300, #fca5a5);
 }
 
 .library-image-ref__number {

@@ -28,10 +28,11 @@ final class LibraryImages
     public const HEADER_ICON = 'heroicon-s-star';
 
     /**
-     * Le type de données que porte un glisser-déposer d'image de la bibliothèque
+     * Le type de données que porte un glisser-déposer d'image ou de vidéo de la bibliothèque
      * (voir `dataTransfer`) : la carte qu'on glisse l'écrit, la mini-grille d'une
-     * période et l'éditeur de texte le lisent. Le contenu est du JSON :
-     * `{"media": 12, "orchestration": 3}`.
+     * période et l'éditeur de texte le lisent. Le contenu est du JSON, avec un élément par
+     * carte glissée (toutes les cartes cochées, si celle qu'on saisit l'est) :
+     * `{"orchestration": 3, "items": [{"media": 12, "kind": "image"}, {"media": 13, "kind": "video"}]}`.
      */
     public const DRAG_TYPE = 'application/x-orchestrator-library-image';
 

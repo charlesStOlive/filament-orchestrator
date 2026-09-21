@@ -183,38 +183,53 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     }
 
     /**
-     * Une image glissée depuis la bibliothèque et déposée dans la case de fin :
-     * elle rejoint cet ensemble, à la suite de la dernière. Une clé qui n'est pas
-     * celle d'une image de ce voyage est ignorée, comme une image déjà présente.
+     * Des fichiers glissés depuis la bibliothèque et déposés dans la case de fin : ils rejoignent cet ensemble, à la suite
+     * de la dernière, dans l'ordre où on les a glissés. Une clé qui n'est pas celle d'un fichier de ce voyage est
+     * ignorée, comme un fichier déjà présent.
+     *
+     * Dans un ensemble d'une seule image (l'image de « une »), seul le premier fichier compte, et une vidéo n'est pas
+     * une image : elle est refusée.
+     *
+     * @param  int|array<int, int|string>  $media  Une clé, ou la liste de celles qu'on a glissées.
      */
-    public function attachMedia(int $media): void
+    public function attachMedia(int|array $media): void
     {
-        $image = $this->tags === [] ? null : $this->orchestration->libraryMedia()->find($media);
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $media), fn (int $id): bool => $id > 0)));
 
-        if ($image === null) {
+        if ($this->tags === [] || $ids === []) {
             return;
         }
 
+        $images = new LibraryImages;
+        $changed = false;
+
         if ($this->single) {
+            $image = $this->orchestration->libraryMedia()->find($ids[0]);
+
             // Une couverture est une image : une vidéo n'a pas de vignette.
-            if ($image->isVideo()) {
+            if ($image?->isVideo()) {
                 Notification::make()->warning()->title('L’image de une doit être une image, pas une vidéo')->send();
 
                 return;
             }
 
-            $current = (new LibraryImages)->tagged($this->orchestration, $this->tags)->first();
-
-            if ($current?->is($image)) {
-                return;
+            if ($image !== null && ! $images->tagged($this->orchestration, $this->tags)->first()?->is($image)) {
+                $images->replace($this->orchestration, $this->tags, $image);
+                $changed = true;
             }
+        } else {
+            foreach ($ids as $id) {
+                $image = $this->orchestration->libraryMedia()->find($id);
 
-            (new LibraryImages)->replace($this->orchestration, $this->tags, $image);
-        } elseif (! (new LibraryImages)->append($this->orchestration, $this->tags, $image)) {
-            return;
+                if ($image !== null && $images->append($this->orchestration, $this->tags, $image)) {
+                    $changed = true;
+                }
+            }
         }
 
-        $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+        if ($changed) {
+            $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+        }
     }
 
     /** Le type de données d'un glisser-déposer d'image de la bibliothèque, pour la vue. */
