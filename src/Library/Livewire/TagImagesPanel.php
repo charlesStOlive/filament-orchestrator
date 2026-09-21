@@ -6,6 +6,7 @@ use CharlesStOlive\FilamentOrchestrator\Filament\Split\SidePaneEvent;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaLibraryAction;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaLibrarySidePane;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaUploadAction;
+use CharlesStOlive\FilamentOrchestrator\Library\LibraryImageEvent;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryImages;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
@@ -103,6 +104,34 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         (new LibraryImages)->reorder($this->orchestration, $this->tags, $ids);
 
         $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+    }
+
+    /**
+     * Une image glissée depuis la bibliothèque et déposée dans la case de fin :
+     * elle rejoint cet ensemble, à la suite de la dernière. Une clé qui n'est pas
+     * celle d'une image de ce voyage est ignorée, comme une image déjà présente.
+     */
+    public function attachMedia(int $media): void
+    {
+        $image = $this->tags === [] ? null : $this->orchestration->libraryMedia()->find($media);
+
+        if ($image === null || ! (new LibraryImages)->append($this->orchestration, $this->tags, $image)) {
+            return;
+        }
+
+        $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+    }
+
+    /** Le type de données d'un glisser-déposer d'image de la bibliothèque, pour la vue. */
+    public function dragType(): string
+    {
+        return LibraryImages::DRAG_TYPE;
+    }
+
+    /** Le nom de l'événement navigateur « cette image est survolée », pour la vue. */
+    public function hoverEvent(): string
+    {
+        return LibraryImageEvent::HOVER;
     }
 
     public function uploadAction(): Action

@@ -7,6 +7,7 @@ use CharlesStOlive\FilamentOrchestrator\Events\ContextualResourceCreated;
 use CharlesStOlive\FilamentOrchestrator\Integrations\MapScenes\MapSceneIntegration;
 use CharlesStOlive\FilamentOrchestrator\Library\Livewire\MediaLibraryTable;
 use CharlesStOlive\FilamentOrchestrator\Library\Livewire\TagImagesPanel;
+use CharlesStOlive\FilamentOrchestrator\Library\RichEditor\LibraryImagePlugin;
 use CharlesStOlive\FilamentOrchestrator\Livewire\OrchestrationPlayer;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryTag;
@@ -19,6 +20,9 @@ use CharlesStOlive\FilamentOrchestrator\Services\ActionDefinitionValidator;
 use CharlesStOlive\FilamentOrchestrator\Services\AttachContextualResource;
 use CharlesStOlive\FilamentOrchestrator\Services\NodeDefinitionValidator;
 use CharlesStOlive\FilamentOrchestrator\Services\TriggerDefinitionValidator;
+use Filament\Support\Assets\Css;
+use Filament\Support\Assets\Js;
+use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
 use Spatie\LaravelPackageTools\Package;
@@ -68,6 +72,13 @@ class FilamentOrchestratorServiceProvider extends PackageServiceProvider
         Livewire::component('filament-orchestrator-player', OrchestrationPlayer::class);
         Livewire::component('filament-orchestrator-media-library', MediaLibraryTable::class);
         Livewire::component('filament-orchestrator-tag-images', TagImagesPanel::class);
+
+        // L'extension TipTap de la référence d'image : Filament ne la télécharge que si un éditeur s'en sert.
+        // Elle est publiée avec les autres assets de Filament (`php artisan filament:assets`).
+        FilamentAsset::register([
+            Js::make(LibraryImagePlugin::ASSET, __DIR__.'/../resources/js/rich-editor/library-image.js')->loadedOnRequest(),
+            Css::make(LibraryImagePlugin::ASSET, __DIR__.'/../resources/css/library-image.css'),
+        ], LibraryImagePlugin::ASSET_PACKAGE);
 
         $this->publishes([
             __DIR__.'/../resources/js' => public_path('vendor/filament-orchestrator'),

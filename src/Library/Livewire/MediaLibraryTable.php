@@ -8,6 +8,7 @@ use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaLibrarySidePane;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaUploadAction;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryAction;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryContext;
+use CharlesStOlive\FilamentOrchestrator\Library\LibraryImages;
 use CharlesStOlive\FilamentOrchestrator\Library\MediaMetadata;
 use CharlesStOlive\FilamentOrchestrator\Library\TagLabels;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
@@ -215,6 +216,8 @@ class MediaLibraryTable extends TableComponent
                         ->viewData(fn (LibraryMedia $record): array => [
                             'size' => $this->currentSize(),
                             'fit' => $this->fit,
+                            'orchestrationId' => $this->orchestrationId,
+                            'dragType' => LibraryImages::DRAG_TYPE,
                             'tags' => $this->visibleTags($record),
                             'tagLabels' => $this->tagLabels($record),
                             'marks' => $this->marksOf($record),

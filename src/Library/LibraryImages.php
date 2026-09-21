@@ -27,6 +27,14 @@ final class LibraryImages
     /** L'icône de l'image d'en-tête, la première de son ensemble. */
     public const HEADER_ICON = 'heroicon-s-star';
 
+    /**
+     * Le type de données que porte un glisser-déposer d'image de la bibliothèque
+     * (voir `dataTransfer`) : la carte qu'on glisse l'écrit, la mini-grille d'une
+     * période et l'éditeur de texte le lisent. Le contenu est du JSON :
+     * `{"media": 12, "orchestration": 3}`.
+     */
+    public const DRAG_TYPE = 'application/x-orchestrator-library-image';
+
     /** @var array<int|string, Collection<int, LibraryMedia>> */
     private array $libraries = [];
 
@@ -95,6 +103,31 @@ final class LibraryImages
     }
 
     /**
+     * Ajoute l'image à l'ensemble que désignent ces tags, à la fin : après la
+     * dernière image, même si d'autres n'ont jamais été placées. Une image déjà
+     * dans l'ensemble garde sa place.
+     *
+     * @param  array<int, string>  $tags
+     * @return bool Vrai si l'image vient d'être ajoutée.
+     */
+    public function append(Orchestration $orchestration, array $tags, LibraryMedia $media): bool
+    {
+        $type = $orchestration->libraryTagType();
+        $before = $this->tagged($orchestration, $tags)->map(fn (LibraryMedia $other): int => $other->getKey());
+
+        if ($before->contains($media->getKey())) {
+            return false;
+        }
+
+        $media->attachTags($tags, $type);
+        unset($this->libraries[$orchestration->getKey()]);
+
+        $this->reorder($orchestration, $tags, [...$before->all(), $media->getKey()]);
+
+        return true;
+    }
+
+    /**
      * Fait de cette image l'en-tête de l'ensemble : la première, les autres
      * gardant leur ordre.
      *
@@ -140,6 +173,9 @@ final class LibraryImages
         $dimensions = $media->dimensions();
 
         return [
+            // La clé de l'image : stable, elle survit aux changements d'ordre. C'est par elle que le texte
+            // d'un contenu désigne une image (voir Library\RichEditor\LibraryImageExtension).
+            'id' => $media->getKey(),
             'url' => $media->getUrl(),
             'thumb' => $media->thumbUrl(),
             'medium' => $media->conversionUrl('medium'),

@@ -17,13 +17,23 @@
     rapport à la carte elle-même (`fi-ta-record`, qui est `relative`). Elle
     donne sa hauteur à la carte, avec un carré de la largeur du contenu.
 
+    Toute la carte se glisse : déposée dans la case de fin du panneau d'images d'une
+    période, l'image s'y ajoute ; déposée dans un texte, elle y écrit sa référence
+    « (image N) » et s'ajoute aussi à la période (voir LibraryImages::DRAG_TYPE). Le
+    glisser porte la clé de l'image et celle de son voyage, au format JSON.
+
     Toute la carte ouvre la fiche : le crayon n'est qu'un repère. La poubelle,
     elle, est un vrai bouton : `.stop` l'empêche d'ouvrir aussi la fiche. En
     petit format il n'y a pas de texte : tags et position se lisent en icônes.
 --}}
 <div
-    class="group aspect-square w-full"
+    class="group aspect-square w-full cursor-grab active:cursor-grabbing"
     data-library-card="{{ $key }}"
+    draggable="true"
+    x-on:dragstart="
+        $event.dataTransfer.effectAllowed = 'copy'
+        $event.dataTransfer.setData(@js($dragType), JSON.stringify({ media: {{ $key }}, orchestration: {{ $orchestrationId }} }))
+    "
     @unless ($fit)
         x-data="{ full: false }"
         x-on:mouseenter.once="full = true"
@@ -50,6 +60,7 @@
         alt="{{ $media->name }}"
         title="{{ $date ?? 'Sans date' }}"
         loading="lazy"
+        draggable="false"
         data-library-fit="{{ $fit ? 'frozen' : 'hover' }}"
         class="absolute inset-0 h-full w-full rounded-xl bg-gray-100 dark:bg-gray-800 {{ $fit ? 'object-contain' : 'object-cover group-hover:object-contain' }}"
     />

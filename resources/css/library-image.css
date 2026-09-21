@@ -1,0 +1,35 @@
+/*
+ * La référence à une image de la bibliothèque dans le RichEditor : « (image 3) »
+ * (voir resources/js/rich-editor/library-image.js). Une pastille de la couleur
+ * principale ; orpheline (l'image n'est plus dans la période), elle passe au rouge.
+ * `.is-linked` : l'image désignée est survolée dans le panneau d'images.
+ */
+.library-image-ref {
+    display: inline-block;
+    padding: 0 0.4em;
+    border-radius: 0.375rem;
+    background: color-mix(in srgb, var(--color-primary-500, #f59e0b) 16%, transparent);
+    color: var(--color-primary-700, #b45309);
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: default;
+    user-select: none;
+    transition: box-shadow 0.15s;
+}
+
+.library-image-ref.is-linked {
+    box-shadow: 0 0 0 2px var(--color-primary-500, #f59e0b);
+}
+
+.library-image-ref.is-orphan {
+    background: color-mix(in srgb, var(--color-danger-500, #ef4444) 16%, transparent);
+    color: var(--color-danger-700, #b91c1c);
+}
+
+.dark .library-image-ref {
+    color: var(--color-primary-300, #fcd34d);
+}
+
+.dark .library-image-ref.is-orphan {
+    color: var(--color-danger-300, #fca5a5);
+}
