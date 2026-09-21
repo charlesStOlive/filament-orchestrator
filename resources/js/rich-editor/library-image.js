@@ -5,10 +5,12 @@
  * réutilise l'instance de TipTap / ProseMirror de l'éditeur, exposée sur
  * `window.FilamentRichEditor.tiptap` : pas de build.
  *
- * - On y dépose une image glissée depuis la bibliothèque : la référence s'écrit là
- *   où on lâche, comme un caractère (aucune espace n'est ajoutée : c'est à l'auteur
- *   de les écrire), et la page en est avertie (événement Livewire
- *   `library-image-dropped`) pour rattacher l'image à son contenu.
+ * - On y dépose une image glissée depuis la bibliothèque (ou une vignette du panneau
+ *   d'images) : la référence s'écrit là où on lâche, comme un caractère, et la page en
+ *   est avertie (événement Livewire `library-image-dropped`) pour rattacher l'image à
+ *   son contenu. Il y a toujours une espace avant et après, jamais deux (voir
+ *   `planSpacing`) ; celle d'avant est insécable, pour que la référence ne se retrouve
+ *   pas seule en début de ligne.
  * - Le nœud ne garde que la clé de l'image : c'est elle qui fait le lien, le numéro
  *   change dès qu'on réordonne. Dans l'éditeur, la référence est un chip — l'icône
  *   d'une photo, sa miniature et son numéro actuel, relus dans le panneau d'images de
@@ -28,6 +30,44 @@ const DROPPED = 'library-image-dropped'
 const HOVER = 'library-image-hover'
 
 const NAME = 'libraryImage'
+
+const NBSP = '\u00a0'
+
+// Ce qui ne demande pas d'espace devant soi : la ponctuation qui ferme (« (image 2). », « (image 2), »).
+const CLOSING = /^[.,;:!?…)\]}»”%]$/
+
+/**
+ * Les espaces à poser autour d'une référence qu'on dépose entre deux caractères.
+ *
+ * `previous` et `next` sont le caractère qui précède et celui qui suit le point de dépôt : `null` au bord du
+ * paragraphe, `''` quand c'est autre chose que du texte (une autre référence).
+ *
+ * - Avant : l'espace qui précède devient insécable, ou une espace insécable s'ajoute s'il n'y en a pas.
+ *   Rien au début d'un paragraphe.
+ * - Après : une espace s'ajoute s'il n'y en a pas, sauf devant une ponctuation qui ferme et à la fin d'un
+ *   paragraphe.
+ *
+ * @returns {{ replacePrevious: boolean, before: string, after: string }} `replacePrevious` : l'espace qui précède est
+ *   remplacée par `before` au lieu de rester.
+ */
+export function planSpacing(previous, next) {
+    let replacePrevious = false
+    let before = ''
+    let after = ''
+
+    if (previous === ' ') {
+        replacePrevious = true
+        before = NBSP
+    } else if (previous !== null && !/^\s$/.test(previous)) {
+        before = NBSP
+    }
+
+    if (next !== null && !/^\s$/.test(next) && !CLOSING.test(next)) {
+        after = ' '
+    }
+
+    return { replacePrevious, before, after }
+}
 
 /** La vignette de l'image dans le panneau d'images de la page, ou null. */
 const tileOf = (media) => document.querySelector(`[data-library-image="${media}"]`)
@@ -197,8 +237,25 @@ export default Node.create({
 
                         event.preventDefault()
 
-                        // La référence seule, comme un caractère : ni espace avant, ni espace après.
-                        view.dispatch(view.state.tr.insert(at.pos, type.create({ media })))
+                        // La référence, avec une espace de chaque côté quand il en manque (voir planSpacing).
+                        const { schema, doc } = view.state
+                        const $at = doc.resolve(at.pos)
+                        const edge = (node, pick) => (node ? (node.isText ? pick(node.text) : '') : null)
+                        const plan = planSpacing(
+                            edge($at.nodeBefore, (text) => text.slice(-1)),
+                            edge($at.nodeAfter, (text) => text.charAt(0)),
+                        )
+                        const content = [type.create({ media })]
+
+                        if (plan.before) {
+                            content.unshift(schema.text(plan.before))
+                        }
+
+                        if (plan.after) {
+                            content.push(schema.text(plan.after))
+                        }
+
+                        view.dispatch(view.state.tr.replaceWith(plan.replacePrevious ? at.pos - 1 : at.pos, at.pos, content))
                         view.focus()
 
                         // La page rattache l'image à son contenu, et le panneau se redessine.
