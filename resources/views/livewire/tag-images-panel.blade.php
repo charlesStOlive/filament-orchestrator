@@ -1,17 +1,20 @@
 <div class="space-y-3">
-    <div class="text-sm font-medium text-gray-950 dark:text-white">
-        {{ $heading }}
-        @unless ($single)
-            <span class="font-normal text-gray-500 dark:text-gray-400">({{ $this->images->count() }})</span>
-        @endunless
+    <div class="flex items-center justify-between gap-2">
+        <div class="text-sm font-medium text-gray-950 dark:text-white">
+            {{ $heading }}
+            @unless ($single)
+                <span class="font-normal text-gray-500 dark:text-gray-400">({{ $this->images->count() }})</span>
+            @endunless
+        </div>
+
+        {{-- Comme l'aide d'un champ Filament (hintAction) : un lien coloré, et le point d'interrogation. --}}
         @if ($help)
             <a
                 href="#modal-{{ $help }}"
-                class="ms-1 inline-flex align-middle text-gray-400 transition hover:text-primary-600 dark:text-gray-500 dark:hover:text-primary-400"
-                title="Aide"
-                aria-label="Aide : {{ $heading }}"
+                class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
             >
                 <x-filament::icon icon="heroicon-o-question-mark-circle" class="h-4 w-4" />
+                {{ $helpLabel ?? 'Aide' }}
             </a>
         @endif
     </div>

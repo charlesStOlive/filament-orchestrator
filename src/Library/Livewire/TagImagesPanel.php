@@ -87,6 +87,10 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     #[Locked]
     public ?string $help = null;
 
+    /** Le libellé du lien d'aide (« Aide » par défaut). */
+    #[Locked]
+    public ?string $helpLabel = null;
+
     /**
      * @param  array<int, string>  $tags
      * @param  array<int, string>  $coverTags
@@ -101,6 +105,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         array $coverTags = [],
         array $libraryTags = [],
         ?string $help = null,
+        ?string $helpLabel = null,
     ): void {
         $this->orchestrationId = $orchestrationId;
         $this->tags = array_values(array_filter($tags, 'is_string'));
@@ -110,6 +115,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         $this->coverTags = array_values(array_filter($coverTags, 'is_string'));
         $this->libraryTags = array_values(array_filter($libraryTags, 'is_string'));
         $this->help = $help;
+        $this->helpLabel = $helpLabel;
 
         // Échoue tôt (404) plutôt qu'à l'affichage.
         $this->orchestration();
