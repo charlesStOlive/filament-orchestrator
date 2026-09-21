@@ -26,8 +26,8 @@ use Livewire\Component;
 /**
  * La version légère de la bibliothèque, à glisser dans l'écran d'une journée
  * (ou de tout contenu qui lit des images par tag) : les images qui portent
- * ces tags, un envoi qui les étiquette d'emblée, et un accès à la
- * bibliothèque complète pour en rattacher d'autres à la main.
+ * ces tags, et une case « + » qui ouvre la bibliothèque complète pour en
+ * rattacher d'autres — ou en envoyer, la bibliothèque étiquetant ce qu'elle reçoit.
  */
 class TagImagesPanel extends Component implements HasActions, HasSchemas
 {
@@ -134,16 +134,10 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         return LibraryImageEvent::HOVER;
     }
 
-    public function uploadAction(): Action
-    {
-        return MediaUploadAction::make('upload')
-            ->record($this->orchestration)
-            ->tags($this->tags)
-            ->source('panel')
-            ->size(Size::Small)
-            ->outlined();
-    }
-
+    /**
+     * Ouvre la bibliothèque : c'est la case « + » qui la déclenche (voir la vue). L'envoi de fichiers se fait dans la
+     * bibliothèque elle-même, qui étiquette ce qu'elle reçoit avec les tags de ce panneau.
+     */
     public function libraryAction(): Action
     {
         if ($this->libraryInSidePane) {

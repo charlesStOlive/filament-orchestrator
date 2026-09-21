@@ -1,14 +1,7 @@
 <div class="space-y-3">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="text-sm font-medium text-gray-950 dark:text-white">
-            {{ $heading }}
-            <span class="font-normal text-gray-500 dark:text-gray-400">({{ $this->images->count() }})</span>
-        </div>
-
-        <div class="flex flex-wrap gap-2">
-            {{ $this->uploadAction }}
-            {{ $this->libraryAction }}
-        </div>
+    <div class="text-sm font-medium text-gray-950 dark:text-white">
+        {{ $heading }}
+        <span class="font-normal text-gray-500 dark:text-gray-400">({{ $this->images->count() }})</span>
     </div>
 
     {{--
@@ -22,13 +15,14 @@
         vignette met en évidence ses références dans le texte, et inversement : les
         deux se le disent par l'événement navigateur « {{ $this->hoverEvent() }} ».
 
-        À la suite de la dernière image, toujours, une case où déposer une image
-        glissée depuis la bibliothèque : elle s'ajoute à la fin. Elle ne réagit qu'à
+        À la suite de la dernière image, toujours, une case « + » : un clic ouvre la
+        bibliothèque (c'est aussi là qu'on envoie des fichiers), et on peut y déposer une
+        image glissée depuis la bibliothèque : elle s'ajoute à la fin. Elle ne réagit qu'à
         ces images-là (pas au réordonnancement d'ici, qui a ses propres événements).
     --}}
     @if ($this->images->isEmpty())
         <p class="text-sm text-gray-500 dark:text-gray-400">
-            Aucune image pour l’instant. Envoyez-en, ou glissez-en depuis la bibliothèque.
+            Aucune image pour l’instant. Cliquez sur « + » pour ouvrir la bibliothèque, ou glissez-en une depuis elle.
         </p>
     @endif
 
@@ -100,10 +94,14 @@
             </div>
         @endforeach
 
-        {{-- Ni `x-sortable-item` : on ne la déplace pas, et les images se rangent avant elle. --}}
+        {{-- Ni `x-sortable-item` : on ne la déplace pas, et les images se rangent avant elle. Un bouton : clic ou dépôt. --}}
         @if ($tags !== [])
-            <div
+            <button
+                type="button"
                 data-library-dropzone
+                wire:click="mountAction('library')"
+                aria-label="Ouvrir la bibliothèque"
+                title="Ouvrir la bibliothèque, ou y glisser une image depuis elle"
                 x-data="{ over: false }"
                 x-on:dragover="if ($event.dataTransfer.types.includes(@js($this->dragType())) && ! $event.dataTransfer.types.includes(@js($this->dragType().'-panel'))) { $event.preventDefault(); $event.dataTransfer.dropEffect = 'copy'; over = true }"
                 x-on:dragleave="if (! $el.contains($event.relatedTarget)) over = false"
@@ -115,11 +113,11 @@
                     try { $wire.attachMedia(Number(JSON.parse(raw).media)) } catch (e) {}
                 "
                 x-bind:class="over ? 'border-primary-500 bg-primary-50 text-primary-600 dark:bg-primary-500/10' : 'border-gray-300 text-gray-400 dark:border-white/20'"
-                class="flex h-20 w-20 flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed text-center text-[10px] leading-tight transition"
+                class="flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed text-center text-[11px] font-medium leading-tight transition hover:border-primary-500 hover:text-primary-600"
             >
-                <x-filament::icon icon="heroicon-m-plus" class="h-5 w-5" />
-                Glisser une image ici
-            </div>
+                <x-filament::icon icon="heroicon-m-plus" class="h-6 w-6" />
+                Ajouter
+            </button>
         @endif
     </div>
 
