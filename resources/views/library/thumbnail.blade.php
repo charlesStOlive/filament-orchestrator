@@ -3,6 +3,8 @@
     $small = $size === 's';
     $date = $media->taken_at?->format('d/m/Y H:i');
     $key = $media->getKey();
+    $thumbUrl = $media->thumbUrl();
+    $fullUrl = $media->conversionUrl('medium');
     // Puces sur fond sombre : lisibles sur n'importe quelle photo.
     $chip = 'flex items-center gap-0.5 rounded-full bg-black/55 text-white shadow backdrop-blur-sm';
     $icon = $small ? 'h-3 w-3' : 'h-4 w-4';
@@ -19,13 +21,37 @@
     elle, est un vrai bouton : `.stop` l'empêche d'ouvrir aussi la fiche. En
     petit format il n'y a pas de texte : tags et position se lisent en icônes.
 --}}
-<div class="aspect-square w-full" data-library-card="{{ $key }}">
+<div
+    class="group aspect-square w-full"
+    data-library-card="{{ $key }}"
+    @unless ($fit)
+        x-data="{ full: false }"
+        x-on:mouseenter.once="full = true"
+    @endunless
+>
+    {{--
+        Recadrée (`object-cover`) pour remplir la carte, l'image se montre entière
+        (`object-contain`) au survol de la carte — et en permanence quand on a
+        figé l'option « Image entière » ($fit). Les bandes que l'image entière
+        laisse libres prennent un fond neutre, pour ne pas laisser voir le fond
+        de carte de Filament.
+
+        La vignette (`thumb`) est recadrée en carré à sa fabrication : elle ne
+        peut pas montrer l'image entière. Il faut la taille d'affichage `medium`,
+        qui garde les proportions. Figé, la carte la charge d'emblée ; sinon elle
+        ne la charge qu'au premier survol (un carré recadré reste sous les yeux
+        le temps qu'elle arrive), pour ne pas tirer toute la page en 900 px.
+    --}}
     <img
-        src="{{ $media->thumbUrl() }}"
+        src="{{ $fit ? $fullUrl : $thumbUrl }}"
+        @unless ($fit)
+            x-bind:src="full ? @js($fullUrl) : @js($thumbUrl)"
+        @endunless
         alt="{{ $media->name }}"
         title="{{ $date ?? 'Sans date' }}"
         loading="lazy"
-        class="absolute inset-0 h-full w-full rounded-xl object-cover"
+        data-library-fit="{{ $fit ? 'frozen' : 'hover' }}"
+        class="absolute inset-0 h-full w-full rounded-xl bg-gray-100 dark:bg-gray-800 {{ $fit ? 'object-contain' : 'object-cover group-hover:object-contain' }}"
     />
 
     @unless ($small)

@@ -83,6 +83,15 @@ class MediaLibraryTable extends TableComponent
     public string $size = 'm';
 
     /**
+     * Vrai quand l'utilisateur a figé l'affichage des images entières (« fit »)
+     * au lieu de les recadrer. Faux, l'image n'est entière qu'au survol de sa
+     * carte. Gardé dans la session, comme la taille.
+     */
+    #[Session(key: 'orchestrator-library-fit')]
+    #[Locked]
+    public bool $fit = false;
+
+    /**
      * Les trois tailles. `grid` est le nombre de cartes par ligne selon la
      * largeur de la *bibliothèque* (les clés en « @ » sont des requêtes de
      * conteneur, voir la vue) et non celle de l'écran : dans le volet d'un tiers
@@ -205,6 +214,7 @@ class MediaLibraryTable extends TableComponent
                         ->view('filament-orchestrator::library.thumbnail')
                         ->viewData(fn (LibraryMedia $record): array => [
                             'size' => $this->currentSize(),
+                            'fit' => $this->fit,
                             'tags' => $this->visibleTags($record),
                             'tagLabels' => $this->tagLabels($record),
                             'marks' => $this->marksOf($record),
@@ -238,6 +248,7 @@ class MediaLibraryTable extends TableComponent
                     ->label('Ajouter des images'),
                 $this->selectionActions(),
                 $this->sizeActions(),
+                $this->fitAction(),
             ])
             ->emptyStateHeading('Aucune image')
             ->emptyStateDescription('Les images envoyées pour ce voyage apparaissent ici.')
@@ -731,6 +742,25 @@ class MediaLibraryTable extends TableComponent
             array_keys(self::SIZES),
             self::SIZES,
         ))->buttonGroup();
+    }
+
+    /**
+     * Fige (ou libère) l'affichage des images entières. Libre, l'image est
+     * recadrée et ne se montre entière qu'au survol de sa carte ; figé, elle l'est
+     * partout, tout le temps.
+     */
+    private function fitAction(): Action
+    {
+        return Action::make('toggleFit')
+            ->iconButton()
+            ->icon(fn (): string => $this->fit ? 'heroicon-m-arrows-pointing-in' : 'heroicon-m-arrows-pointing-out')
+            ->color(fn (): string => $this->fit ? 'primary' : 'gray')
+            ->tooltip(fn (): string => $this->fit
+                ? 'Images entières en permanence — cliquer pour recadrer'
+                : 'Images recadrées, entières au survol — cliquer pour les garder entières')
+            ->action(function (): void {
+                $this->fit = ! $this->fit;
+            });
     }
 
     /** @return array<int, string> Les libellés de tous les tags de l'image. */
