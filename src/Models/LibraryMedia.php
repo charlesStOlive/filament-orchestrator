@@ -3,6 +3,7 @@
 namespace CharlesStOlive\FilamentOrchestrator\Models;
 
 use Carbon\CarbonImmutable;
+use CharlesStOlive\FilamentOrchestrator\Library\VideoMetadataReader;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -163,6 +164,10 @@ class LibraryMedia extends Media
             return ['width' => $width, 'height' => $height];
         }
 
+        if ($this->isVideo()) {
+            return $this->readVideoFacts()['dimensions'];
+        }
+
         $conversion = $this->hasGeneratedConversion('large') ? 'large' : null;
         $path = $this->getPath($conversion ?? '');
         $size = is_file($path) ? @getimagesize($path) : false;
@@ -181,6 +186,55 @@ class LibraryMedia extends Media
         $this->saveQuietly();
 
         return ['width' => $size[0], 'height' => $size[1]];
+    }
+
+    /**
+     * La durée d'une vidéo, en secondes, quand le fichier la dit (MP4, MOV) ; null sinon (WebM) ou pour une image.
+     */
+    public function duration(): ?float
+    {
+        if (! $this->isVideo()) {
+            return null;
+        }
+
+        $duration = $this->getCustomProperty('duration');
+
+        return is_numeric($duration) && $duration > 0 ? (float) $duration : $this->readVideoFacts()['duration'];
+    }
+
+    /**
+     * La taille et la durée d'une vidéo chargée avant qu'on les lise : relues dans le fichier une fois, puis gardées dans
+     * les propriétés du média — comme la taille d'une image —, pour que l'ouverture d'une page ne rouvre plus jamais le
+     * fichier. Un fichier qui ne les dit pas (WebM) n'est relu qu'une fois : l'échec est gardé aussi.
+     *
+     * @return array{dimensions: array{width: int, height: int}|null, duration: float|null}
+     */
+    private function readVideoFacts(): array
+    {
+        if ($this->getCustomProperty('facts_read')) {
+            $width = (int) $this->getCustomProperty('width', 0);
+            $height = (int) $this->getCustomProperty('height', 0);
+            $duration = $this->getCustomProperty('duration');
+
+            return [
+                'dimensions' => $width > 0 && $height > 0 ? ['width' => $width, 'height' => $height] : null,
+                'duration' => is_numeric($duration) && $duration > 0 ? (float) $duration : null,
+            ];
+        }
+
+        $path = $this->getPath();
+        $read = is_file($path) ? (new VideoMetadataReader)->read($path) : ['width' => null, 'height' => null, 'duration' => null];
+
+        foreach (['width', 'height', 'duration'] as $key) {
+            $read[$key] === null ? $this->forgetCustomProperty($key) : $this->setCustomProperty($key, $read[$key]);
+        }
+
+        $this->setCustomProperty('facts_read', true)->saveQuietly();
+
+        return [
+            'dimensions' => $read['width'] !== null && $read['height'] !== null ? ['width' => $read['width'], 'height' => $read['height']] : null,
+            'duration' => $read['duration'],
+        ];
     }
 
     /** Les tags, avec leur position dans l'ensemble qu'ils désignent (voir la colonne `sort` du pivot). */

@@ -222,17 +222,25 @@ final class LibraryImages
 
     /**
      * Ce que le navigateur reçoit d'une vidéo : son fichier, tel quel. Elle n'a ni vignette ni taille d'affichage
-     * (aucun traitement côté serveur) ; le navigateur en tire l'aperçu et la durée.
+     * (aucun traitement côté serveur) ; le navigateur en tire l'aperçu. Sa taille et sa durée, quand le fichier les dit,
+     * donnent aux cadres leur format sans attendre.
      *
      * @return array<string, mixed>
      */
     private function videoPayload(LibraryMedia $media): array
     {
+        $dimensions = $media->dimensions();
+
         return [
             'type' => 'video',
             'id' => $media->getKey(),
             'url' => $media->getUrl(),
+            // L'adresse à lire : le fichier entier, ou seulement le passage choisi (`#t=début,fin`).
+            'src' => $media->trimmedUrl(),
             'mime' => $media->mime_type,
+            'width' => $dimensions['width'] ?? null,
+            'height' => $dimensions['height'] ?? null,
+            'duration' => $media->duration(),
             'trim' => $media->trim(),
             'name' => $media->name,
             'alt' => $media->getCustomProperty('alt', $media->name),

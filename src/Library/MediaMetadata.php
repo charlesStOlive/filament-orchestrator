@@ -27,6 +27,9 @@ final readonly class MediaMetadata
         public ?float $latitude = null,
         public ?float $longitude = null,
         public ?string $dateSource = null,
+        public ?int $width = null,
+        public ?int $height = null,
+        public ?float $duration = null,
     ) {}
 
     public function hasGps(): bool

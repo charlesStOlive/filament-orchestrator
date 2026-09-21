@@ -59,6 +59,10 @@ final class LibraryIngestor
             ->withCustomProperties(array_filter([
                 'source' => $context->source,
                 'date_source' => $metadata->dateSource,
+                // Une vidéo : sa taille et sa durée, quand le fichier les dit (voir VideoMetadataReader).
+                'width' => $metadata->width,
+                'height' => $metadata->height,
+                'duration' => $metadata->duration,
             ]))
             ->toMediaCollection(Orchestration::LIBRARY_COLLECTION);
 

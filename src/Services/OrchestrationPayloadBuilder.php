@@ -72,17 +72,20 @@ class OrchestrationPayloadBuilder
         // Les images propres au modèle passent d'abord, puis celles de la
         // bibliothèque portant les tags que ce nœud déclare.
         if ($tags !== []) {
-            $media = $library->tagged($orchestration, $tags);
+            $media = $library->tagged($orchestration, $tags)->values();
             $images = $media->filter(fn ($item): bool => $item->isImage())->values();
             $videos = $media->filter(fn ($item): bool => $item->isVideo())->values();
 
             // Deux listes : les vidéos n'ont ni vignette ni taille d'affichage, et se numérotent à part
-            // (« image 2 », « vidéo 1 »).
+            // (« image 2 », « vidéo 1 »). `position` est la place du fichier dans l'ensemble, images et vidéos mêlées,
+            // dans l'ordre où on les a rangées : c'est celui d'une scène qui les montre ensemble.
+            $position = fn ($item): int => (int) $media->search(fn ($candidate): bool => $candidate->is($item));
+
             $data['images'] = [
                 ...($data['images'] ?? []),
-                ...$images->map(fn ($item, int $index): array => $library->payload($item, header: $index === 0))->all(),
+                ...$images->map(fn ($item, int $index): array => [...$library->payload($item, header: $index === 0), 'position' => $position($item)])->all(),
             ];
-            $data['videos'] = $videos->map(fn ($item): array => $library->payload($item))->all();
+            $data['videos'] = $videos->map(fn ($item): array => [...$library->payload($item), 'position' => $position($item)])->all();
         }
 
         return [

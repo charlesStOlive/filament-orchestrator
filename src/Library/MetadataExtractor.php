@@ -58,8 +58,15 @@ final class MetadataExtractor
     {
         $video = (new VideoMetadataReader)->read($path);
 
+        // Ce que le fichier dit de son image : les cadres du carnet prennent le bon format sans attendre que le navigateur le lise.
         if ($video['createdAt'] === null) {
-            return $this->withFileDate(new MediaMetadata(latitude: $video['latitude'], longitude: $video['longitude']), $path);
+            return $this->withFileDate(new MediaMetadata(
+                latitude: $video['latitude'],
+                longitude: $video['longitude'],
+                width: $video['width'],
+                height: $video['height'],
+                duration: $video['duration'],
+            ), $path);
         }
 
         // La date est en UTC ; une photo garde l'heure « murale » de son EXIF. On convertit vers le fuseau du voyage pour
@@ -72,6 +79,9 @@ final class MetadataExtractor
             latitude: $video['latitude'],
             longitude: $video['longitude'],
             dateSource: MediaMetadata::SOURCE_VIDEO,
+            width: $video['width'],
+            height: $video['height'],
+            duration: $video['duration'],
         );
     }
 
@@ -87,6 +97,9 @@ final class MetadataExtractor
             latitude: $metadata->latitude,
             longitude: $metadata->longitude,
             dateSource: MediaMetadata::SOURCE_FILE,
+            width: $metadata->width,
+            height: $metadata->height,
+            duration: $metadata->duration,
         );
     }
 
