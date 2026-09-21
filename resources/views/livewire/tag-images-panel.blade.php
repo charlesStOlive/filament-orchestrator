@@ -32,9 +32,19 @@
         </p>
     @endif
 
+    {{--
+        Une vignette se glisse aussi vers le texte de la période, où elle écrit sa référence : elle porte la même donnée
+        qu'une carte de la bibliothèque (clé de l'image et du voyage). Sans cela, SortableJS y mettrait le texte de
+        l'élément — ses espaces et son numéro —, que l'éditeur déposerait tel quel, en autant de paragraphes. Le marqueur
+        `-panel` dit à la case de dépôt que ce glisser vient d'ici : elle n'a rien à en faire.
+    --}}
     <div
         data-library-sortable
         x-sortable
+        x-init="$nextTick(() => $el.sortable?.option('setData', (dataTransfer, dragEl) => {
+            dataTransfer.setData(@js($this->dragType()), JSON.stringify({ media: Number(dragEl.getAttribute('x-sortable-item')), orchestration: {{ $orchestrationId }} }))
+            dataTransfer.setData(@js($this->dragType().'-panel'), '1')
+        }))"
         x-on:end.stop="$wire.reorder($event.target.sortable.toArray())"
         class="flex flex-wrap gap-2"
     >
@@ -95,7 +105,7 @@
             <div
                 data-library-dropzone
                 x-data="{ over: false }"
-                x-on:dragover="if ($event.dataTransfer.types.includes(@js($this->dragType()))) { $event.preventDefault(); $event.dataTransfer.dropEffect = 'copy'; over = true }"
+                x-on:dragover="if ($event.dataTransfer.types.includes(@js($this->dragType())) && ! $event.dataTransfer.types.includes(@js($this->dragType().'-panel'))) { $event.preventDefault(); $event.dataTransfer.dropEffect = 'copy'; over = true }"
                 x-on:dragleave="if (! $el.contains($event.relatedTarget)) over = false"
                 x-on:drop="
                     over = false
