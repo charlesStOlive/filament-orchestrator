@@ -81,6 +81,13 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     public array $libraryTags = [];
 
     /**
+     * L'identifiant d'une page d'aide de la base de connaissances (Guava), que le « ? » du titre ouvre dans une fenêtre :
+     * un simple lien « #modal-… », que l'extension de la base intercepte dans le panneau. Sans elle, il ne mène nulle part.
+     */
+    #[Locked]
+    public ?string $help = null;
+
+    /**
      * @param  array<int, string>  $tags
      * @param  array<int, string>  $coverTags
      * @param  array<int, string>  $libraryTags
@@ -93,6 +100,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         bool $single = false,
         array $coverTags = [],
         array $libraryTags = [],
+        ?string $help = null,
     ): void {
         $this->orchestrationId = $orchestrationId;
         $this->tags = array_values(array_filter($tags, 'is_string'));
@@ -101,6 +109,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         $this->single = $single;
         $this->coverTags = array_values(array_filter($coverTags, 'is_string'));
         $this->libraryTags = array_values(array_filter($libraryTags, 'is_string'));
+        $this->help = $help;
 
         // Échoue tôt (404) plutôt qu'à l'affichage.
         $this->orchestration();

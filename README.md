@@ -110,9 +110,9 @@ là pour écrire un déclencheur entier à la main.
 - **Nettoyage** : retirer une ligne du formulaire supprime les nœuds qu'elle
   avait produits, et avec eux les modèles dont elle était propriétaire.
 
-## Bibliothèque d'images
+## Bibliothèque d'images et de vidéos
 
-Les images d'une orchestration ne sont pas rangées dans ses contenus : elles
+Les images (et les vidéos, voir plus bas) d'une orchestration ne sont pas rangées dans ses contenus : elles
 vivent toutes **sur l'orchestration**, dans sa bibliothèque (collection Spatie
 `library`). Ce qui rattache une image à une journée ou à une introduction, ce
 sont ses **tags**. Un contenu ne possède donc pas d'images, il déclare les tags
@@ -169,11 +169,78 @@ trier, filtrer et grouper.
 - **En-tête** : la première image d'un ensemble en est l'en-tête. Le panneau la
   met en avant, `LibraryImages::header()` la donne, et le payload la marque
   (`header: true`) dans les images d'un contenu.
+- **Image de « une »** : un ensemble à part, d'une seule image (la couverture
+  d'une journée). `TagImagesPanel` l'affiche en mode `single` (on remplace, on ne
+  réordonne rien, l'image n'a ni numéro ni clé de référence) ; ses `coverTags`
+  disent où lire la couverture, si bien que le panneau des photos marque la
+  première tant qu'aucune n'est choisie, et ses `libraryTags` l'ensemble sur
+  lequel s'ouvre la bibliothèque. C'est l'application qui pose l'action de la
+  bibliothèque (voir `LibraryAction` ci-dessous).
 - **Date de repli** : sans date de prise de vue dans l'EXIF, l'image prend la date
   de son fichier — pour un fichier envoyé par un navigateur, celle de l'envoi.
   Elle est marquée `date_source = file` (`exif` pour une vraie prise de vue,
   `manual` quand on l'a corrigée) et `LibraryMedia::hasReliableDate()` la
   distingue : un tagger ne doit pas s'y fier.
+
+### Vidéos
+
+Une vidéo entre dans la bibliothèque comme une image (`LibraryIngestor`), mais **le
+serveur ne la retouche jamais** : ni conversion, ni ffmpeg. Ce qu'il en lit, il le
+lit dans le fichier :
+
+- MP4 et MOV : `Library\VideoMetadataReader` parse l'atome `moov` en PHP — `mvhd`
+  (date de création et durée), `tkhd` (dimensions, rotation comprise), `udta/©xyz`
+  (position GPS). La date est en UTC ; elle est ramenée au fuseau du voyage
+  (`library.video_timezone`, variable `LIBRARY_VIDEO_TIMEZONE`, UTC par défaut) pour rester une heure « murale », comme
+  celle d'une photo. Sans date, celle du fichier tient lieu (`date_source = file`).
+- L'aperçu (première image), la durée et les dimensions des autres formats sont lus
+  **par le navigateur** à l'envoi.
+- La **coupe** est non destructive : `trim_start` / `trim_end` (secondes) sont des
+  propriétés du média, que le payload traduit en fragment `#t=début,fin` de l'URL,
+  doublé d'une garde JavaScript. Le fichier reste entier.
+
+`LibraryMedia::kind()` / `isVideo()` disent ce qu'est un média, le payload porte
+`type` (`image` ou `video`) et les images et les vidéos se numérotent à part. La
+limite d'envoi est de 100 Mo (`config/media-library.php` et `config/livewire.php`
+de l'application).
+
+### Glisser-déposer et références
+
+Les cartes de la bibliothèque et les vignettes de `TagImagesPanel` se glissent
+(type `application/x-orchestrator-library-image`, données : le voyage et la liste des
+médias). Elles se déposent :
+
+- sur la case « + » de fin de `TagImagesPanel` : l'image rejoint l'ensemble
+  (`attachMedia()`) ;
+- dans un éditeur de texte muni de `Library\RichEditor\LibraryImagePlugin` : une
+  **référence** s'y écrit, un nœud qui ne retient que les clés des médias et leur
+  genre — jamais leur place. Le numéro (« (image 3) », « (vidéos 1, 2) ») est
+  calculé à l'affichage, d'après l'ordre courant. Une référence dont le média a quitté
+  l'ensemble est *orpheline* (rouge dans l'éditeur ; le front l'ignore).
+
+Le survol d'une référence et de la vignette correspondante se répondent par
+l'événement navigateur `LibraryImageEvent::HOVER`. Un dépôt dans le texte émet
+`LibraryImageEvent::DROPPED` : c'est à la page d'y répondre (rattacher l'image à la
+période, par exemple).
+
+### Fenêtre d'édition
+
+Un clic sur une carte ouvre une fenêtre large : un bandeau (nom, légende, texte
+alternatif, date, position, tags, coupe d'une vidéo) et l'aperçu. Enregistrer sans
+toucher à la date la laisse intacte (`date_source` inchangé) ; la modifier la marque
+`manual`. La fenêtre permet aussi de supprimer le média, après confirmation.
+
+`taken_at` est une heure murale : elle passe par l'attribut `LibraryMedia::takenAt()`
+et non par la façade `Date`, dont un fuseau utilisateur (`Date::useCallable`) la
+décalerait. Pour recalculer les dates depuis les fichiers (import, ancien décalage) :
+`artisan orchestrator:realign-library-dates` (les dates saisies à la main sont respectées).
+
+### Aide contextuelle
+
+`TagImagesPanel` accepte un paramètre `help` : l'identifiant d'une page de la base de
+connaissances (`voyage.images`). Son titre porte alors un « ? », un simple lien
+`#modal-<identifiant>` que la base de connaissances ouvre en fenêtre ; sans elle, le
+lien ne mène nulle part. Le paquet n'en dépend pas.
 
 ### Actions ajoutées à la bibliothèque
 

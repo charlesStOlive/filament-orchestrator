@@ -149,21 +149,6 @@ final class LibraryImages
     }
 
     /**
-     * Fait de cette image l'en-tête de l'ensemble : la première, les autres
-     * gardant leur ordre.
-     *
-     * @param  array<int, string>  $tags
-     */
-    public function moveToFirst(Orchestration $orchestration, array $tags, LibraryMedia $media): void
-    {
-        $others = $this->tagged($orchestration, $tags)
-            ->reject(fn (LibraryMedia $other): bool => $other->is($media))
-            ->map(fn (LibraryMedia $other): int => $other->getKey());
-
-        $this->reorder($orchestration, $tags, [$media->getKey(), ...$others->all()]);
-    }
-
-    /**
      * L'image de couverture de chaque tag : la première de son ensemble. Une
      * seule requête, pour afficher d'un coup toutes les cartes.
      *

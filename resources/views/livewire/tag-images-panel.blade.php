@@ -4,6 +4,16 @@
         @unless ($single)
             <span class="font-normal text-gray-500 dark:text-gray-400">({{ $this->images->count() }})</span>
         @endunless
+        @if ($help)
+            <a
+                href="#modal-{{ $help }}"
+                class="ms-1 inline-flex align-middle text-gray-400 transition hover:text-primary-600 dark:text-gray-500 dark:hover:text-primary-400"
+                title="Aide"
+                aria-label="Aide : {{ $heading }}"
+            >
+                <x-filament::icon icon="heroicon-o-question-mark-circle" class="h-4 w-4" />
+            </a>
+        @endif
     </div>
 
     {{--
