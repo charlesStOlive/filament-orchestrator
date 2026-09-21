@@ -76,6 +76,46 @@ class LibraryMedia extends Media
         return ! $this->isVideo();
     }
 
+    /**
+     * La coupe d'une vidéo, en secondes : où le lecteur commence et où il s'arrête. Non destructive — le fichier reste
+     * entier sur le disque —, le lecteur s'en tient à ce passage (fragment `#t=début,fin`). Un côté peut manquer.
+     *
+     * @return array{start: float|null, end: float|null}
+     */
+    public function trim(): array
+    {
+        $start = $this->getCustomProperty('trim_start');
+        $end = $this->getCustomProperty('trim_end');
+
+        return [
+            'start' => is_numeric($start) && $start > 0 ? (float) $start : null,
+            'end' => is_numeric($end) && $end > 0 ? (float) $end : null,
+        ];
+    }
+
+    /** L'adresse du fichier vidéo, avec sa coupe : `…mp4#t=12,45`. Sans coupe, l'adresse seule. */
+    public function trimmedUrl(): string
+    {
+        ['start' => $start, 'end' => $end] = $this->trim();
+
+        if ($start === null && $end === null) {
+            return $this->getUrl();
+        }
+
+        return $this->getUrl().'#t='.($start ?? 0).($end === null ? '' : ','.$end);
+    }
+
+    /** D'où vient la date de prise de vue, pour le dire à qui la lit. */
+    public function dateSourceLabel(): string
+    {
+        return match ($this->getCustomProperty('date_source', 'exif')) {
+            'manual' => 'Saisie à la main',
+            'file' => 'Date du chargement : le fichier ne porte pas de date de prise de vue',
+            'video' => 'Date de tournage, lue dans la vidéo',
+            default => 'Date de prise de vue, lue dans l’EXIF',
+        };
+    }
+
     /** 'image' ou 'video'. */
     public function kind(): string
     {

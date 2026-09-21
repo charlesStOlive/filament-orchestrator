@@ -3,6 +3,7 @@
 namespace CharlesStOlive\FilamentOrchestrator\Library\Livewire;
 
 use Carbon\CarbonImmutable;
+use Closure;
 use CharlesStOlive\FilamentOrchestrator\Filament\Split\SidePaneEvent;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaLibrarySidePane;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaUploadAction;
@@ -19,9 +20,14 @@ use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group as SchemaGroup;
 use Filament\Schemas\Components\Livewire;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\View as ViewComponent;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
@@ -488,6 +494,12 @@ class MediaLibraryTable extends TableComponent
             });
     }
 
+    /**
+     * La fenêtre d'édition d'une image ou d'une vidéo, ouverte par un clic sur sa carte : très large, en deux parties. À
+     * gauche (un cinquième) ce qu'on édite — nom, légende, texte alternatif, date, position, tags, et la coupe d'une
+     * vidéo — et ce que le serveur sait du fichier ; à droite (quatre cinquièmes) l'image entière, ou la vidéo et son
+     * lecteur.
+     */
     private function editAction(): Action
     {
         return Action::make('edit')
@@ -498,43 +510,105 @@ class MediaLibraryTable extends TableComponent
             // affiché. Il doit rester dans le DOM, Filament n'ouvre pas une
             // action masquée.
             ->extraAttributes(['class' => 'hidden'])
-            ->modalHeading('Modifier l’image')
-            ->modalWidth(Width::Large)
+            ->modalHeading(fn (LibraryMedia $record): string => $record->isVideo() ? 'Modifier la vidéo' : 'Modifier l’image')
+            ->modalWidth(Width::Screen)
+            ->modalSubmitActionLabel('Enregistrer')
             ->fillForm(fn (LibraryMedia $record): array => [
+                'name' => $record->name,
+                'caption' => $record->getCustomProperty('caption'),
+                'alt' => $record->getCustomProperty('alt'),
                 'taken_at' => $record->taken_at,
                 'latitude' => $record->latitude,
                 'longitude' => $record->longitude,
                 'tags' => $record->tagNames($this->orchestration->libraryTagType()),
+                'trim_start' => $record->trim()['start'],
+                'trim_end' => $record->trim()['end'],
             ])
             ->schema([
-                DateTimePicker::make('taken_at')
-                    ->label('Date de prise de vue')
-                    // L'heure de l'appareil, telle quelle : le fuseau de l'utilisateur (que l'application applique aux
-                    // sélecteurs de date) ne la décalerait que d'un cran de plus (voir LibraryMedia::takenAt()).
-                    ->timezone('UTC')
-                    ->seconds(false)
-                    ->helperText('Pour dater une photo sans EXIF, ou corriger celle de l’appareil.'),
-                TextInput::make('latitude')->label('Latitude')->numeric()->minValue(-90)->maxValue(90)
-                    ->requiredWith('longitude'),
-                TextInput::make('longitude')->label('Longitude')->numeric()->minValue(-180)->maxValue(180)
-                    ->requiredWith('latitude'),
-                $this->tagSelect('tags', 'Tags'),
+                Grid::make(['default' => 1, 'lg' => 5])->gap()->schema([
+                    SchemaGroup::make([
+                        ViewComponent::make('filament-orchestrator::library.media-info')
+                            ->viewData(fn (LibraryMedia $record): array => ['media' => $record]),
+                        TextInput::make('name')->label('Nom')->required()->maxLength(255),
+                        Textarea::make('caption')->label('Légende')->rows(2)->maxLength(500)
+                            ->helperText('Affichée sous la photo ou la vidéo dans le carnet.'),
+                        TextInput::make('alt')->label('Texte alternatif')->maxLength(255)
+                            ->helperText('Décrit son contenu à qui ne peut pas le voir.'),
+                        DateTimePicker::make('taken_at')
+                            ->label('Date de prise de vue')
+                            // L'heure de l'appareil, telle quelle : le fuseau de l'utilisateur (que l'application applique aux
+                            // sélecteurs de date) ne la décalerait que d'un cran de plus (voir LibraryMedia::takenAt()).
+                            ->timezone('UTC')
+                            ->seconds(false)
+                            ->helperText('Pour dater un fichier sans date de prise de vue, ou corriger celle de l’appareil.'),
+                        Grid::make(2)->schema([
+                            TextInput::make('latitude')->label('Latitude')->numeric()->minValue(-90)->maxValue(90)
+                                ->requiredWith('longitude'),
+                            TextInput::make('longitude')->label('Longitude')->numeric()->minValue(-180)->maxValue(180)
+                                ->requiredWith('latitude'),
+                        ]),
+                        $this->tagSelect('tags', 'Tags'),
+                        // La coupe d'une vidéo : où le lecteur commence et s'arrête. Le fichier reste entier ; les boutons
+                        // du lecteur (library/media-preview) reportent ici l'endroit où l'on est arrivé.
+                        Grid::make(2)
+                            ->visible(fn (LibraryMedia $record): bool => $record->isVideo())
+                            ->schema([
+                                TextInput::make('trim_start')->label('Début (s)')->numeric()->minValue(0)->step(0.1)
+                                    ->extraInputAttributes(['data-trim' => 'trim_start']),
+                                TextInput::make('trim_end')->label('Fin (s)')->numeric()->minValue(0)->step(0.1)
+                                    // Après le début — quand il y en a un : une coupe peut n'avoir qu'une fin.
+                                    ->rule(fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+                                        if (is_numeric($value) && is_numeric($get('trim_start')) && (float) $value <= (float) $get('trim_start')) {
+                                            $fail('La fin doit venir après le début.');
+                                        }
+                                    })
+                                    ->extraInputAttributes(['data-trim' => 'trim_end']),
+                            ]),
+                    ])->columnSpan(['lg' => 1]),
+                    ViewComponent::make('filament-orchestrator::library.media-preview')
+                        ->viewData(fn (LibraryMedia $record): array => ['media' => $record])
+                        ->columnSpan(['lg' => 4]),
+                ]),
             ])
             ->action(function (LibraryMedia $record, array $data): void {
-                $takenAt = filled($data['taken_at'] ?? null) ? CarbonImmutable::parse($data['taken_at']) : null;
+                $submitted = filled($data['taken_at'] ?? null) ? CarbonImmutable::parse($data['taken_at']) : null;
+
+                // Le sélecteur n'a pas de secondes : la date qu'on lui a donnée (« 11:09:33 ») revient « 11:09:00 ». La comparer à
+                // la minute près — sinon enregistrer la fenêtre sans toucher à la date la tiendrait pour changée, la
+                // tronquerait, et ferait d'une date « du chargement » une date « saisie à la main », donc fiable.
+                $changed = $submitted?->format('Y-m-d H:i') !== $record->taken_at?->format('Y-m-d H:i');
+                $takenAt = $changed ? $submitted : $record->taken_at;
 
                 // Une date changée à la main n'est plus « celle du fichier » : elle devient fiable.
-                if ($takenAt !== null && ($record->taken_at === null || ! $takenAt->equalTo($record->taken_at))) {
+                if ($changed && $takenAt !== null) {
                     $record->setCustomProperty('date_source', MediaMetadata::SOURCE_MANUAL);
                 }
 
+                // Vide : la propriété disparaît, et le carnet retombe sur le nom (texte alternatif) ou n'écrit rien (légende).
+                foreach (['caption', 'alt'] as $property) {
+                    filled($data[$property] ?? null)
+                        ? $record->setCustomProperty($property, trim((string) $data[$property]))
+                        : $record->forgetCustomProperty($property);
+                }
+
+                if ($record->isVideo()) {
+                    foreach (['trim_start', 'trim_end'] as $property) {
+                        is_numeric($data[$property] ?? null) && (float) $data[$property] > 0
+                            ? $record->setCustomProperty($property, (float) $data[$property])
+                            : $record->forgetCustomProperty($property);
+                    }
+                }
+
                 $record->forceFill([
+                    'name' => filled($data['name'] ?? null) ? trim((string) $data['name']) : $record->name,
                     'taken_at' => $takenAt,
                     'latitude' => $data['latitude'] ?? null,
                     'longitude' => $data['longitude'] ?? null,
                 ])->save();
 
                 $record->syncTagsWithType($this->cleanTags($data['tags'] ?? []), $this->orchestration->libraryTagType());
+
+                $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
             });
     }
 

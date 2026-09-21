@@ -232,6 +232,7 @@ final class LibraryImages
             'id' => $media->getKey(),
             'url' => $media->getUrl(),
             'mime' => $media->mime_type,
+            'trim' => $media->trim(),
             'name' => $media->name,
             'alt' => $media->getCustomProperty('alt', $media->name),
             'caption' => $media->getCustomProperty('caption'),

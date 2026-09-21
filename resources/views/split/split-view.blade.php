@@ -104,7 +104,7 @@
             data-split-pane="{{ $paneKey }}"
             style="--pane-width: {{ $default }}%"
             x-bind:style="{ '--pane-width': width + '%' }"
-            class="fi-orchestrator-split-pane min-w-0 rounded-xl bg-white shadow-xs ring-1 ring-gray-950/5 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:shrink-0 lg:basis-(--pane-width) lg:overflow-y-auto dark:bg-gray-900 dark:ring-white/10"
+            class="fi-orchestrator-split-pane min-w-0 rounded-xl bg-white shadow-xs ring-1 ring-gray-950/5 lg:sticky lg:top-20 lg:z-40 lg:max-h-[calc(100dvh-6rem)] lg:shrink-0 lg:basis-(--pane-width) lg:overflow-y-auto dark:bg-gray-900 dark:ring-white/10"
         >
             <div class="flex items-center gap-2 border-b border-gray-200 px-4 py-2.5 dark:border-white/10">
                 @if (filled($icon))
