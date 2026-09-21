@@ -12,20 +12,12 @@
       ligne suit sa largeur (voir MediaLibraryTable::SIZES), qu'elle soit dans une
       modale ou dans le volet d'un tiers d'une page.
 --}}
-<div class="@container [&_.fi-ta-record-checkbox]:relative [&_.fi-ta-record-checkbox]:z-10 [&_.fi-ta-record-checkbox:not(:checked)]:bg-white!">
-    {{--
-        Au service de quoi la bibliothèque est ouverte : la journée qu'on édite. Elle
-        le sait avant même d'être ouverte, la page le lui dit à chaque changement.
-    --}}
-    @if ($focusTags !== [])
-        <div
-            data-library-focus
-            class="mb-3 flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700 ring-1 ring-primary-600/10 dark:bg-primary-500/10 dark:text-primary-300 dark:ring-primary-400/20"
-        >
-            <x-filament::icon icon="heroicon-m-map-pin" class="h-4 w-4 shrink-0" />
-            <span class="min-w-0 truncate">En cours : <strong class="font-semibold">{{ $this->focusLabel }}</strong></span>
-        </div>
-    @endif
-
+{{--
+    Le bloc du haut — au service de quoi la bibliothèque est ouverte, filtres, envoi, raccourcis, tailles — reste
+    visible quand la grille défile (`sticky`, dans le volet ou la modale qui défile). Le conteneur de la table a
+    `overflow: hidden` pour arrondir ses coins : il ferait de lui le défilement et empêcherait `sticky` ; `clip`
+    arrondit de même, sans en être un.
+--}}
+<div class="@container [&_.fi-ta-record-checkbox]:relative [&_.fi-ta-record-checkbox]:z-10 [&_.fi-ta-record-checkbox:not(:checked)]:bg-white! [&_.fi-ta-ctn]:overflow-clip [&_.fi-ta-header-ctn]:sticky [&_.fi-ta-header-ctn]:top-0 [&_.fi-ta-header-ctn]:z-20 [&_.fi-ta-header-ctn]:bg-white [&_.fi-ta-header-ctn]:pb-2 dark:[&_.fi-ta-header-ctn]:bg-gray-900">
     {{ $this->table }}
 </div>
