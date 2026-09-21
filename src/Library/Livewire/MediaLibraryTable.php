@@ -509,6 +509,9 @@ class MediaLibraryTable extends TableComponent
             ->schema([
                 DateTimePicker::make('taken_at')
                     ->label('Date de prise de vue')
+                    // L'heure de l'appareil, telle quelle : le fuseau de l'utilisateur (que l'application applique aux
+                    // sélecteurs de date) ne la décalerait que d'un cran de plus (voir LibraryMedia::takenAt()).
+                    ->timezone('UTC')
                     ->seconds(false)
                     ->helperText('Pour dater une photo sans EXIF, ou corriger celle de l’appareil.'),
                 TextInput::make('latitude')->label('Latitude')->numeric()->minValue(-90)->maxValue(90)

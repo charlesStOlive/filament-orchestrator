@@ -21,6 +21,10 @@ final class MetadataExtractor
             return new MediaMetadata;
         }
 
+        if (str_starts_with((string) @mime_content_type($path), 'video/')) {
+            return $this->fromVideo($path);
+        }
+
         $exif = function_exists('exif_read_data') ? @exif_read_data($path) : false;
 
         if (! is_array($exif)) {
@@ -43,6 +47,32 @@ final class MetadataExtractor
             longitude: $located ? $longitude : null,
             dateSource: $takenAt ? MediaMetadata::SOURCE_EXIF : null,
         ), $path);
+    }
+
+    /**
+     * Une vidéo n'a pas d'EXIF : sa date de tournage et sa position sont celles que l'appareil a écrites dans le fichier
+     * (voir VideoMetadataReader). Faute de quoi — WebM, montage sans date — c'est la date du fichier, qui pour un fichier
+     * chargé par un navigateur est celle du chargement : elle est marquée comme telle et ne rattache rien d'elle-même.
+     */
+    private function fromVideo(string $path): MediaMetadata
+    {
+        $video = (new VideoMetadataReader)->read($path);
+
+        if ($video['createdAt'] === null) {
+            return $this->withFileDate(new MediaMetadata(latitude: $video['latitude'], longitude: $video['longitude']), $path);
+        }
+
+        // La date est en UTC ; une photo garde l'heure « murale » de son EXIF. On convertit vers le fuseau du voyage pour
+        // que « 23 h 30 » le 12 reste le 12 (et non le 13 en UTC).
+        $timezone = (string) config('filament-orchestrator.library.video_timezone', 'UTC');
+        $wall = $video['createdAt']->setTimezone($timezone)->format('Y-m-d H:i:s');
+
+        return new MediaMetadata(
+            takenAt: CarbonImmutable::createFromFormat('Y-m-d H:i:s', $wall, 'UTC') ?: null,
+            latitude: $video['latitude'],
+            longitude: $video['longitude'],
+            dateSource: MediaMetadata::SOURCE_VIDEO,
+        );
     }
 
     /** Sans date de prise de vue, la date du fichier en tient lieu. */

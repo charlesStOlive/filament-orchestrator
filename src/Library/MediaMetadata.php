@@ -5,15 +5,18 @@ namespace CharlesStOlive\FilamentOrchestrator\Library;
 use Carbon\CarbonImmutable;
 
 /**
- * Ce que l'EXIF d'une photo dit d'elle : quand, et où quand la position est connue.
+ * Ce que l'EXIF d'une photo — ou les métadonnées d'une vidéo — dit d'elle : quand, et où quand la position est connue.
  *
  * Sans date de prise de vue, la date du fichier en tient lieu (`dateSource`
- * vaut alors « file ») : c'est une date approximative, que la bibliothèque
+ * vaut alors « file ») : pour un fichier chargé par un navigateur, c'est la date du chargement, une date approximative, que la bibliothèque
  * n'utilise pas pour rattacher automatiquement une image à une journée.
  */
 final readonly class MediaMetadata
 {
     public const SOURCE_EXIF = 'exif';
+
+    /** La date de création écrite dans une vidéo MP4/MOV par l'appareil qui l'a tournée. */
+    public const SOURCE_VIDEO = 'video';
 
     public const SOURCE_FILE = 'file';
 

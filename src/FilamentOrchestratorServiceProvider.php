@@ -3,6 +3,7 @@
 namespace CharlesStOlive\FilamentOrchestrator;
 
 use CharlesStOlive\FilamentMap\Models\MapScene;
+use CharlesStOlive\FilamentOrchestrator\Console\RealignLibraryDatesCommand;
 use CharlesStOlive\FilamentOrchestrator\Events\ContextualResourceCreated;
 use CharlesStOlive\FilamentOrchestrator\Integrations\MapScenes\MapSceneIntegration;
 use CharlesStOlive\FilamentOrchestrator\Library\Livewire\MediaLibraryTable;
@@ -38,6 +39,7 @@ class FilamentOrchestratorServiceProvider extends PackageServiceProvider
             ->name('filament-orchestrator')
             ->hasConfigFile('filament-orchestrator')
             ->hasViews('filament-orchestrator')
+            ->hasCommand(RealignLibraryDatesCommand::class)
             ->hasMigrations([
                 'create_filament_orchestrator_tables',
                 'add_library_columns_to_media_table',

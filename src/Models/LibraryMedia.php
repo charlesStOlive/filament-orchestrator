@@ -2,7 +2,10 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Models;
 
+use Carbon\CarbonImmutable;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Spatie\Tags\HasTags;
@@ -35,10 +38,31 @@ class LibraryMedia extends Media
     protected function casts(): array
     {
         return [
-            'taken_at' => 'datetime',
             'latitude' => 'float',
             'longitude' => 'float',
         ];
+    }
+
+    /**
+     * La date de prise de vue : l'heure « murale » de l'appareil (celle de l'EXIF), gardée telle quelle, sans fuseau.
+     *
+     * Elle ne passe volontairement pas par le cast `datetime` d'Eloquent, qui passe par la façade `Date` : une application
+     * peut y brancher `Date::useCallable()` pour ramener les dates au fuseau de l'utilisateur (c'est ce que fait le paquet
+     * des permissions), et l'heure serait alors décalée à l'écriture — 22 h 03 le 5 mai enregistrée à 00 h 03 le 6 —
+     * dans une requête web seulement, pas en console. Un objet `Carbon` construit ici n'y est pas soumis.
+     *
+     * @return Attribute<CarbonImmutable|null, mixed>
+     */
+    protected function takenAt(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value): ?CarbonImmutable => $value === null ? null : CarbonImmutable::parse($value, 'UTC'),
+            set: fn (mixed $value): ?string => match (true) {
+                $value === null || $value === '' => null,
+                $value instanceof DateTimeInterface => $value->format('Y-m-d H:i:s'),
+                default => CarbonImmutable::parse((string) $value, 'UTC')->format('Y-m-d H:i:s'),
+            },
+        );
     }
 
     /** Une vidéo, et non une image : elle n'a ni vignette ni taille d'affichage, seulement son fichier. */
@@ -128,7 +152,7 @@ class LibraryMedia extends Media
     /**
      * La date est-elle celle de la prise de vue (EXIF) ou saisie à la main, plutôt
      * que celle du fichier ? Une image plus ancienne que la colonne
-     * `date_source` est réputée datée par son EXIF.
+     * `date_source` est réputée datée par son EXIF (ou, pour une vidéo, par ses métadonnées).
      */
     public function hasReliableDate(): bool
     {
