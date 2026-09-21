@@ -98,7 +98,7 @@
                     x-bind:class="linked ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : ''"
                     @if ($loop->first && $this->firstIsFallbackCover)
                         data-library-header
-                        x-tooltip="{ content: 'Sert d’image de une tant qu’aucune n’est choisie', theme: $store.theme }"
+                        x-tooltip="{ content: 'Couverture par défaut, tant qu’aucune image de une n’est choisie', theme: $store.theme }"
                     @endif
                     class="group relative cursor-grab rounded-lg active:cursor-grabbing {{ $loop->first && $this->firstIsFallbackCover ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : '' }}"
                 >
@@ -166,13 +166,15 @@
 
     @if ($single)
         <p class="text-xs text-gray-500 dark:text-gray-400">
-            Elle sert de couverture (carte d’accueil, en-tête de l’étape) et ne s’affiche parmi les photos de la période que si vous l’y ajoutez aussi.
+            Elle sert de couverture (carte d’accueil du carnet) et ne s’affiche parmi les photos de la période que si vous l’y ajoutez aussi.
         </p>
-    @elseif ($this->images->count() > 1)
+    @elseif ($this->images->count() > 1 || $this->firstIsFallbackCover)
         <p class="text-xs text-gray-500 dark:text-gray-400">
-            Glissez pour réordonner.
+            @if ($this->images->count() > 1)
+                Glissez pour réordonner, ou dans le texte pour y écrire une référence.
+            @endif
             @if ($this->firstIsFallbackCover)
-                La première sert d’image de une tant qu’aucune n’est choisie.
+                Sans image de une, la première fait la couverture.
             @endif
         </p>
     @endif
