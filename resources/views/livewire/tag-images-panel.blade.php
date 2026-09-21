@@ -1,6 +1,6 @@
 <div class="space-y-3">
     <div class="flex items-center justify-between gap-2">
-        <div class="text-sm font-medium text-gray-950 dark:text-white">
+        <div class="whitespace-nowrap text-sm font-medium text-gray-950 dark:text-white">
             {{ $heading }}
             @unless ($single)
                 <span class="font-normal text-gray-500 dark:text-gray-400">({{ $this->images->count() }})</span>
@@ -11,7 +11,7 @@
         @if ($help)
             <a
                 href="#modal-{{ $help }}"
-                class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+                class="inline-flex items-center gap-1 whitespace-nowrap text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
             >
                 <x-filament::icon icon="heroicon-o-question-mark-circle" class="h-4 w-4" />
                 {{ $helpLabel ?? 'Aide' }}
