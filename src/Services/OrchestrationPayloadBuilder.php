@@ -72,12 +72,17 @@ class OrchestrationPayloadBuilder
         // Les images propres au modèle passent d'abord, puis celles de la
         // bibliothèque portant les tags que ce nœud déclare.
         if ($tags !== []) {
+            $media = $library->tagged($orchestration, $tags);
+            $images = $media->filter(fn ($item): bool => $item->isImage())->values();
+            $videos = $media->filter(fn ($item): bool => $item->isVideo())->values();
+
+            // Deux listes : les vidéos n'ont ni vignette ni taille d'affichage, et se numérotent à part
+            // (« image 2 », « vidéo 1 »).
             $data['images'] = [
                 ...($data['images'] ?? []),
-                ...$library->tagged($orchestration, $tags)
-                    ->map(fn ($media, int $index): array => $library->payload($media, header: $index === 0))
-                    ->all(),
+                ...$images->map(fn ($item, int $index): array => $library->payload($item, header: $index === 0))->all(),
             ];
+            $data['videos'] = $videos->map(fn ($item): array => $library->payload($item))->all();
         }
 
         return [

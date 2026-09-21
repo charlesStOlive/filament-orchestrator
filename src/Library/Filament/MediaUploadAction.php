@@ -6,6 +6,7 @@ use Closure;
 use CharlesStOlive\FilamentOrchestrator\Library\IngestContext;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryIngestor;
 use CharlesStOlive\FilamentOrchestrator\Library\TagLabels;
+use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -15,7 +16,7 @@ use Illuminate\Http\UploadedFile;
 use Throwable;
 
 /**
- * Envoie des images dans la bibliothèque d'une orchestration.
+ * Charge des images et des vidéos dans la bibliothèque d'une orchestration.
  *
  * C'est l'uploader, distinct de la gestion : il n'affiche rien de la
  * bibliothèque, il y verse. Les tags qu'on lui donne sont posés sur chaque
@@ -30,6 +31,11 @@ use Throwable;
 class MediaUploadAction extends Action
 {
     public const UPDATED_EVENT = 'orchestrator-library-updated';
+
+    /** Poids maximal d'une image, en Ko. Les vidéos vont jusqu'à `MAX_VIDEO_SIZE`. */
+    public const MAX_IMAGE_SIZE = 20480;
+
+    public const MAX_VIDEO_SIZE = 102400;
 
     /** @var array<int, string>|Closure */
     protected array|Closure $tags = [];
@@ -68,23 +74,23 @@ class MediaUploadAction extends Action
         parent::setUp();
 
         $this
-            ->label('Ajouter des images')
+            ->label('Charger des images')
             ->icon('heroicon-o-arrow-up-tray')
-            ->modalHeading('Ajouter des images')
+            ->modalHeading('Charger des images et des vidéos')
             ->modalWidth(Width::Large)
-            ->modalSubmitActionLabel('Ajouter à la bibliothèque')
+            ->modalSubmitActionLabel('Charger dans la bibliothèque')
             ->schema(fn (): array => [
                 // Les fichiers ne sont pas stockés par le champ : l'ingestor
                 // les range lui-même, une seule fois, dans la bibliothèque.
                 FileUpload::make('files')
-                    ->label('Images')
+                    ->label('Fichiers')
                     ->multiple()
                     ->storeFiles(false)
-                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+                    ->acceptedFileTypes([...LibraryMedia::IMAGE_TYPES, ...LibraryMedia::VIDEO_TYPES])
                     ->maxFiles(50)
-                    ->maxSize(20480)
+                    ->maxSize(self::MAX_VIDEO_SIZE)
                     ->required()
-                    ->helperText($this->destinationHint()),
+                    ->helperText($this->destinationHint().' Images : 20 Mo au plus. Vidéos (MP4, WebM ou MOV) : 100 Mo au plus.'),
             ])
             ->action(function (array $data): void {
                 $orchestration = $this->getRecord();
@@ -108,6 +114,13 @@ class MediaUploadAction extends Action
                 continue;
             }
 
+            // Une image plus lourde que la limite des images (celle des vidéos est plus large) : refusée, sans perdre les autres.
+            if (! str_starts_with((string) $file->getMimeType(), 'video/') && $file->getSize() > self::MAX_IMAGE_SIZE * 1024) {
+                $failed[] = $file->getClientOriginalName().' (image de plus de '.(self::MAX_IMAGE_SIZE / 1024).' Mo)';
+
+                continue;
+            }
+
             try {
                 $ingestor->ingest($orchestration, $file, $context);
                 $added++;
@@ -119,13 +132,13 @@ class MediaUploadAction extends Action
         }
 
         if ($added > 0) {
-            Notification::make()->success()->title($added.' image(s) ajoutée(s) à la bibliothèque')->send();
+            Notification::make()->success()->title($added.' fichier(s) ajouté(s) à la bibliothèque')->send();
             $this->getLivewire()?->dispatch(self::UPDATED_EVENT, orchestrationId: $orchestration->getKey());
         }
 
         if ($failed !== []) {
             Notification::make()->warning()
-                ->title(count($failed).' image(s) n’ont pas pu être ajoutées')
+                ->title(count($failed).' fichier(s) n’ont pas pu être ajoutés')
                 ->body(implode(', ', $failed))
                 ->send();
         }

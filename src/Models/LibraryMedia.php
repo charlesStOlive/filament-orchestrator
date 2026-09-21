@@ -23,6 +23,15 @@ class LibraryMedia extends Media
         HasTags::tags as private baseTags;
     }
 
+    /** Les images acceptées dans la bibliothèque. */
+    public const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+    /**
+     * Les vidéos acceptées. Le serveur n'en fait rien (ni conversion ni aperçu : cela demanderait `ffmpeg`) : le fichier
+     * est servi tel quel et le navigateur le lit. Le format est donc celui que les navigateurs savent lire.
+     */
+    public const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+
     protected function casts(): array
     {
         return [
@@ -30,6 +39,33 @@ class LibraryMedia extends Media
             'latitude' => 'float',
             'longitude' => 'float',
         ];
+    }
+
+    /** Une vidéo, et non une image : elle n'a ni vignette ni taille d'affichage, seulement son fichier. */
+    public function isVideo(): bool
+    {
+        return str_starts_with((string) $this->mime_type, 'video/');
+    }
+
+    public function isImage(): bool
+    {
+        return ! $this->isVideo();
+    }
+
+    /** 'image' ou 'video'. */
+    public function kind(): string
+    {
+        return $this->isVideo() ? 'video' : 'image';
+    }
+
+    public function scopeVideos(Builder $query): Builder
+    {
+        return $query->where('mime_type', 'like', 'video/%');
+    }
+
+    public function scopeImages(Builder $query): Builder
+    {
+        return $query->where('mime_type', 'not like', 'video/%');
     }
 
     /** La vignette quand elle existe (sinon l'original, le temps qu'elle soit générée). */

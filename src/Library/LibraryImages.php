@@ -178,7 +178,12 @@ final class LibraryImages
         $covers = [];
 
         foreach ($names as $name) {
-            $covers[$name] = $this->tagged($orchestration, [$name])->first()->thumbUrl();
+            // Une couverture est une image : une vidéo n'a pas de vignette.
+            $first = $this->tagged($orchestration, [$name])->first(fn (LibraryMedia $media): bool => $media->isImage());
+
+            if ($first !== null) {
+                $covers[$name] = $first->thumbUrl();
+            }
         }
 
         return $covers;
@@ -190,9 +195,14 @@ final class LibraryImages
      */
     public function payload(LibraryMedia $media, bool $header = false): array
     {
+        if ($media->isVideo()) {
+            return $this->videoPayload($media);
+        }
+
         $dimensions = $media->dimensions();
 
         return [
+            'type' => 'image',
             // La clé de l'image : stable, elle survit aux changements d'ordre. C'est par elle que le texte
             // d'un contenu désigne une image (voir Library\RichEditor\LibraryImageExtension).
             'id' => $media->getKey(),
@@ -206,6 +216,25 @@ final class LibraryImages
             'alt' => $media->getCustomProperty('alt', $media->name),
             'caption' => $media->getCustomProperty('caption'),
             'header' => $header,
+        ];
+    }
+
+    /**
+     * Ce que le navigateur reçoit d'une vidéo : son fichier, tel quel. Elle n'a ni vignette ni taille d'affichage
+     * (aucun traitement côté serveur) ; le navigateur en tire l'aperçu et la durée.
+     *
+     * @return array<string, mixed>
+     */
+    private function videoPayload(LibraryMedia $media): array
+    {
+        return [
+            'type' => 'video',
+            'id' => $media->getKey(),
+            'url' => $media->getUrl(),
+            'mime' => $media->mime_type,
+            'name' => $media->name,
+            'alt' => $media->getCustomProperty('alt', $media->name),
+            'caption' => $media->getCustomProperty('caption'),
         ];
     }
 

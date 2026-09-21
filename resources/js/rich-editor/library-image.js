@@ -227,6 +227,11 @@ export default Node.create({
                             return false
                         }
 
+                        // Une vidéo ne s'écrit pas encore dans le texte : on laisse le glisser sans effet.
+                        if (dragged?.kind === 'video') {
+                            return false
+                        }
+
                         const media = Number(dragged?.media)
                         const at = view.posAtCoords({ left: event.clientX, top: event.clientY })
                         const type = view.state.schema.nodes[NAME]

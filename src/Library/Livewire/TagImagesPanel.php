@@ -13,6 +13,7 @@ use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Support\Enums\Size;
@@ -135,14 +136,37 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         return $this->single ? $images->take(1)->values() : $images;
     }
 
-    /** La première image tient lieu d'image de « une » : il y en a une à désigner, et aucune n'est choisie. */
+    /**
+     * La place de chaque image dans son genre, à partir de 1 : « image 2 » est la deuxième image, « vidéo 1 » la
+     * première vidéo — les vidéos se numérotent à part, comme le fait le carnet.
+     *
+     * @return array<int, int> clé de l'image => place
+     */
     #[Computed]
-    public function firstIsFallbackCover(): bool
+    public function positions(): array
     {
-        return ! $this->single
-            && $this->coverTags !== []
-            && $this->images->isNotEmpty()
-            && (new LibraryImages)->tagged($this->orchestration, $this->coverTags)->isEmpty();
+        $counters = ['image' => 0, 'video' => 0];
+        $positions = [];
+
+        foreach ($this->images as $media) {
+            $positions[$media->getKey()] = ++$counters[$media->kind()];
+        }
+
+        return $positions;
+    }
+
+    /**
+     * La première image (une vidéo n'a pas de vignette : elle ne fait pas de couverture) tient lieu d'image de « une » :
+     * il y en a une à désigner, et aucune n'est choisie. Null sinon.
+     */
+    #[Computed]
+    public function fallbackCoverId(): ?int
+    {
+        if ($this->single || $this->coverTags === [] || (new LibraryImages)->tagged($this->orchestration, $this->coverTags)->isNotEmpty()) {
+            return null;
+        }
+
+        return $this->images->first(fn (LibraryMedia $media): bool => $media->isImage())?->getKey();
     }
 
     /**
@@ -172,6 +196,13 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         }
 
         if ($this->single) {
+            // Une couverture est une image : une vidéo n'a pas de vignette.
+            if ($image->isVideo()) {
+                Notification::make()->warning()->title('L’image de une doit être une image, pas une vidéo')->send();
+
+                return;
+            }
+
             $current = (new LibraryImages)->tagged($this->orchestration, $this->tags)->first();
 
             if ($current?->is($image)) {

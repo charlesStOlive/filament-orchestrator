@@ -61,7 +61,7 @@ class Orchestration extends Model implements HasMedia
     {
         $this->addMediaCollection(self::LIBRARY_COLLECTION)
             ->useDisk(config('filament-orchestrator.library.disk', 'public'))
-            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+            ->acceptsMimeTypes([...LibraryMedia::IMAGE_TYPES, ...LibraryMedia::VIDEO_TYPES]);
     }
 
     public function registerMediaConversions(?Media $media = null): void

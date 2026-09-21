@@ -43,7 +43,7 @@
             data-library-sortable
             x-sortable
             x-init="$nextTick(() => $el.sortable?.option('setData', (dataTransfer, dragEl) => {
-                dataTransfer.setData(@js($this->dragType()), JSON.stringify({ media: Number(dragEl.getAttribute('x-sortable-item')), orchestration: {{ $orchestrationId }} }))
+                dataTransfer.setData(@js($this->dragType()), JSON.stringify({ media: Number(dragEl.getAttribute('x-sortable-item')), orchestration: {{ $orchestrationId }}, kind: dragEl.dataset.libraryKind }))
                 dataTransfer.setData(@js($this->dragType().'-panel'), '1')
             }))"
             x-on:end.stop="$wire.reorder($event.target.sortable.toArray())"
@@ -60,13 +60,7 @@
                     x-tooltip="{ content: 'Image de une : elle sert de couverture', theme: $store.theme }"
                     class="group relative rounded-lg ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900"
                 >
-                    <img
-                        src="{{ $media->thumbUrl() }}"
-                        alt="{{ $media->name }}"
-                        loading="lazy"
-                        draggable="false"
-                        class="h-20 w-20 rounded-lg object-cover"
-                    />
+                    @include('filament-orchestrator::livewire.partials.tile-media', ['media' => $media])
 
                     <span class="pointer-events-none absolute left-1 top-1 flex items-center rounded-full bg-primary-600/90 p-1 text-white shadow">
                         <x-filament::icon :icon="$this->headerIcon()" class="h-3 w-3" />
@@ -90,37 +84,32 @@
                     x-sortable-item="{{ $media->getKey() }}"
                     x-sortable-handle
                     data-library-image="{{ $media->getKey() }}"
-                    data-library-position="{{ $loop->iteration }}"
+                    data-library-position="{{ $this->positions[$media->getKey()] }}"
+                    data-library-kind="{{ $media->kind() }}"
                     x-data="{ linked: false }"
                     x-on:mouseenter="$dispatch('{{ $this->hoverEvent() }}', { media: {{ $media->getKey() }}, on: true, source: 'panel' })"
                     x-on:mouseleave="$dispatch('{{ $this->hoverEvent() }}', { media: {{ $media->getKey() }}, on: false, source: 'panel' })"
                     x-on:{{ $this->hoverEvent() }}.window="if ($event.detail.media === {{ $media->getKey() }}) linked = $event.detail.on"
                     x-bind:class="linked ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : ''"
-                    @if ($loop->first && $this->firstIsFallbackCover)
+                    @if ($media->getKey() === $this->fallbackCoverId)
                         data-library-header
                         x-tooltip="{ content: 'Couverture par défaut, tant qu’aucune image de une n’est choisie', theme: $store.theme }"
                     @endif
-                    class="group relative cursor-grab rounded-lg active:cursor-grabbing {{ $loop->first && $this->firstIsFallbackCover ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : '' }}"
+                    class="group relative cursor-grab rounded-lg active:cursor-grabbing {{ $media->getKey() === $this->fallbackCoverId ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : '' }}"
                 >
-                    <img
-                        src="{{ $media->thumbUrl() }}"
-                        alt="{{ $media->name }}"
-                        loading="lazy"
-                        draggable="false"
-                        class="h-20 w-20 rounded-lg object-cover"
-                    />
+                    @include('filament-orchestrator::livewire.partials.tile-media', ['media' => $media])
 
-                    @if ($loop->first && $this->firstIsFallbackCover)
+                    @if ($media->getKey() === $this->fallbackCoverId)
                         <span class="pointer-events-none absolute left-1 top-1 flex items-center rounded-full bg-primary-600/90 p-1 text-white shadow">
                             <x-filament::icon :icon="$this->headerIcon()" class="h-3 w-3" />
                         </span>
                     @endif
 
-                    {{-- Le numéro de l'image dans le carnet : « (image N) » dans le texte. --}}
+                    {{-- Le numéro de l'image dans le carnet : « (image N) » dans le texte ; « V1 » : la première vidéo. --}}
                     <span
                         data-library-number
                         class="pointer-events-none absolute bottom-1 left-1 min-w-5 rounded-full bg-black/60 px-1.5 text-center text-[10px] font-semibold leading-5 text-white shadow"
-                    >{{ $loop->iteration }}</span>
+                    >{{ $media->isVideo() ? 'V' : '' }}{{ $this->positions[$media->getKey()] }}</span>
 
                     <button
                         type="button"
@@ -168,12 +157,12 @@
         <p class="text-xs text-gray-500 dark:text-gray-400">
             Elle sert de couverture (carte d’accueil du carnet) et ne s’affiche parmi les photos de la période que si vous l’y ajoutez aussi.
         </p>
-    @elseif ($this->images->count() > 1 || $this->firstIsFallbackCover)
+    @elseif ($this->images->count() > 1 || $this->fallbackCoverId !== null)
         <p class="text-xs text-gray-500 dark:text-gray-400">
             @if ($this->images->count() > 1)
                 Glissez pour réordonner, ou dans le texte pour y écrire une référence.
             @endif
-            @if ($this->firstIsFallbackCover)
+            @if ($this->fallbackCoverId !== null)
                 Sans image de une, la première fait la couverture.
             @endif
         </p>

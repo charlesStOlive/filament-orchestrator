@@ -42,6 +42,8 @@ abstract class LibraryAction
 
     protected ?string $shortLabel = null;
 
+    protected string $refusal = 'Cette action ne s’applique pas à cette sélection';
+
     final public function __construct()
     {
         $this->setUp();
@@ -107,6 +109,28 @@ abstract class LibraryAction
     public function getShortLabel(): string
     {
         return $this->shortLabel ?? $this->label;
+    }
+
+    /** Ce que dit la bibliothèque quand une image cochée n'est pas de celles que l'action accepte (voir `accepts()`). */
+    public function refusal(string $message): static
+    {
+        $this->refusal = $message;
+
+        return $this;
+    }
+
+    public function getRefusal(): string
+    {
+        return $this->refusal;
+    }
+
+    /**
+     * Cette image, ou cette vidéo, est-elle de celles auxquelles l'action s'applique ? Une seule refusée, et l'action
+     * ne fait rien : la bibliothèque dit pourquoi (`refusal()`). Tout est accepté par défaut.
+     */
+    public function accepts(LibraryMedia $media): bool
+    {
+        return true;
     }
 
     /** L'action porte sur une seule image : la bibliothèque refuse une sélection plus large. */

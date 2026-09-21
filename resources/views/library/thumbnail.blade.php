@@ -20,7 +20,7 @@
     Toute la carte se glisse : déposée dans la case de fin du panneau d'images d'une
     période, l'image s'y ajoute ; déposée dans un texte, elle y écrit sa référence
     « (image N) » et s'ajoute aussi à la période (voir LibraryImages::DRAG_TYPE). Le
-    glisser porte la clé de l'image et celle de son voyage, au format JSON.
+    glisser porte la clé de l'image, celle de son voyage et sa nature (image ou vidéo), au format JSON.
 
     Toute la carte ouvre la fiche : le crayon n'est qu'un repère. La poubelle,
     elle, est un vrai bouton : `.stop` l'empêche d'ouvrir aussi la fiche. En
@@ -32,13 +32,49 @@
     draggable="true"
     x-on:dragstart="
         $event.dataTransfer.effectAllowed = 'copy'
-        $event.dataTransfer.setData(@js($dragType), JSON.stringify({ media: {{ $key }}, orchestration: {{ $orchestrationId }} }))
+        $event.dataTransfer.setData(@js($dragType), JSON.stringify({ media: {{ $key }}, orchestration: {{ $orchestrationId }}, kind: '{{ $media->kind() }}' }))
     "
     @unless ($fit)
         x-data="{ full: false }"
         x-on:mouseenter.once="full = true"
     @endunless
 >
+    @if ($media->isVideo())
+        {{--
+            Une vidéo : le navigateur en montre l'image d'ouverture (`preload="metadata"`, `#t=0.1`), le serveur n'en fait
+            aucun aperçu. Ni recadrage ni image entière au survol : elle se montre entière, sur fond noir. L'icône de
+            lecture la distingue d'une image, et sa durée — lue par le navigateur — s'inscrit dès qu'il la connaît.
+        --}}
+        <div
+            data-library-video="{{ $key }}"
+            x-data="{ duration: null }"
+            class="absolute inset-0 overflow-hidden rounded-xl bg-black"
+        >
+            <video
+                src="{{ $media->getUrl() }}#t=0.1"
+                preload="metadata"
+                muted
+                playsinline
+                draggable="false"
+                x-on:loadedmetadata="duration = Number.isFinite($el.duration) ? Math.round($el.duration) : null"
+                class="h-full w-full object-contain"
+            ></video>
+
+            <span class="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <span class="flex items-center justify-center rounded-full bg-black/55 text-white shadow backdrop-blur-sm {{ $small ? 'h-7 w-7' : 'h-12 w-12' }}">
+                    <x-filament::icon icon="heroicon-s-play" class="{{ $small ? 'h-3.5 w-3.5' : 'h-6 w-6' }} translate-x-px" />
+                </span>
+            </span>
+
+            <span
+                x-show="duration !== null"
+                x-cloak
+                x-text="Math.floor(duration / 60) + ':' + String(duration % 60).padStart(2, '0')"
+                data-library-duration
+                class="pointer-events-none absolute right-1.5 {{ $small ? 'bottom-1.5 text-[10px]' : 'bottom-10 text-xs' }} rounded bg-black/65 px-1.5 py-0.5 font-medium leading-none text-white"
+            ></span>
+        </div>
+    @else
     {{--
         Recadrée (`object-cover`) pour remplir la carte, l'image se montre entière
         (`object-contain`) au survol de la carte — et en permanence quand on a
@@ -64,6 +100,7 @@
         data-library-fit="{{ $fit ? 'frozen' : 'hover' }}"
         class="absolute inset-0 h-full w-full rounded-xl bg-gray-100 dark:bg-gray-800 {{ $fit ? 'object-contain' : 'object-cover group-hover:object-contain' }}"
     />
+    @endif
 
     @unless ($small)
         <div class="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 rounded-b-xl bg-gradient-to-t from-black/80 to-transparent"></div>

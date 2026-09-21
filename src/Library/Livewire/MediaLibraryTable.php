@@ -223,6 +223,11 @@ class MediaLibraryTable extends TableComponent
                             'tagLabels' => $this->tagLabels($record),
                             'marks' => $this->marksOf($record),
                         ]),
+                    // Ne dessine rien : elle est là pour que « Trier par » propose le type (images, puis vidéos).
+                    ViewColumn::make('mime_type')
+                        ->label('Type')
+                        ->sortable()
+                        ->view('filament-orchestrator::library.empty'),
                 ]),
             ])
             // Au service de quoi la bibliothèque est ouverte : dans l'en-tête de la table, donc dans le bloc qui reste
@@ -242,6 +247,7 @@ class MediaLibraryTable extends TableComponent
             ->filtersFormWidth(Width::TwoExtraLarge)
             ->groupingSettingsInDropdownOnDesktop()
             ->groups([
+                $this->kindGroup(),
                 $this->dateGroup(),
                 $this->zoneGroup('zone_fine', 'Zone (environ 1 km)', 2),
                 $this->zoneGroup('zone_large', 'Zone (environ 10 km)', 1),
@@ -254,9 +260,7 @@ class MediaLibraryTable extends TableComponent
                     ->record($this->orchestration)
                     ->tags($this->focusTags)
                     ->source('library')
-                    // Court, comme les autres boutons de la barre : la place manque dans un volet étroit.
-                    ->label('Envoyer')
-                    ->tooltip('Envoyer des images dans la bibliothèque')
+                    ->label('Charger des images')
                     ->size(Size::Small),
                 ...$this->shortcutActions(),
                 $this->selectionActions(),
@@ -284,6 +288,16 @@ class MediaLibraryTable extends TableComponent
     {
         return [
             ...$this->focusFilters(),
+
+            // Images ou vidéos : reconnues à leur type de fichier.
+            SelectFilter::make('kind')
+                ->label('Type')
+                ->options(['image' => 'Images', 'video' => 'Vidéos'])
+                ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
+                    'video' => $query->videos(),
+                    'image' => $query->images(),
+                    default => $query,
+                }),
 
             Filter::make('taken_at')
                 ->label('Date de prise de vue')
@@ -369,6 +383,18 @@ class MediaLibraryTable extends TableComponent
     | Groupements
     |--------------------------------------------------------------------------
     */
+
+    private function kindGroup(): Group
+    {
+        return Group::make('mime_type')
+            ->id('kind')
+            ->label('Type')
+            ->titlePrefixedWithLabel(false)
+            ->getKeyFromRecordUsing(fn (LibraryMedia $record): string => $record->kind())
+            ->getTitleFromRecordUsing(fn (LibraryMedia $record): string => $record->isVideo() ? 'Vidéos' : 'Images')
+            ->orderQueryUsing(fn (Builder $query, string $direction): Builder => $query->orderBy('mime_type', $direction))
+            ->scopeQueryByKeyUsing(fn (Builder $query, ?string $key): Builder => $key === 'video' ? $query->videos() : $query->images());
+    }
 
     private function dateGroup(): Group
     {
@@ -602,6 +628,12 @@ class MediaLibraryTable extends TableComponent
                 ->action(function (Collection $selectedRecords) use ($libraryAction): void {
                     if ($libraryAction->isSingle() && $selectedRecords->count() !== 1) {
                         Notification::make()->warning()->title('Cochez une seule image')->send();
+
+                        return;
+                    }
+
+                    if ($selectedRecords->contains(fn (LibraryMedia $media): bool => ! $libraryAction->accepts($media))) {
+                        Notification::make()->warning()->title($libraryAction->getRefusal())->send();
 
                         return;
                     }
