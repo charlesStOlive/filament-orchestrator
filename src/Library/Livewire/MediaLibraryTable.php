@@ -477,21 +477,49 @@ class MediaLibraryTable extends TableComponent
             ->color('danger')
             ->extraAttributes(['class' => 'hidden'])
             ->requiresConfirmation()
-            ->modalHeading('Supprimer cette image ?')
-            ->modalDescription(function (LibraryMedia $record): string {
-                $usedBy = $this->tagLabels($record);
-
-                return 'Elle disparaît de la bibliothèque'
-                    .($usedBy === [] ? '' : ' et de : '.implode(', ', $usedBy))
-                    .'. Cette action est définitive.';
-            })
+            ->modalHeading(fn (LibraryMedia $record): string => $record->isVideo() ? 'Supprimer cette vidéo ?' : 'Supprimer cette image ?')
+            ->modalDescription(fn (LibraryMedia $record): string => $this->deletionDescription($record))
             ->modalSubmitActionLabel('Supprimer')
-            ->action(function (LibraryMedia $record): void {
-                $record->delete();
+            ->action(fn (LibraryMedia $record) => $this->deleteMedia($record));
+    }
 
-                Notification::make()->success()->title('Image supprimée')->send();
-                $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
-            });
+    /** Ce que la suppression emporte : le fichier, et sa place dans chacune des périodes où il est rangé. */
+    private function deletionDescription(LibraryMedia $record): string
+    {
+        $usedBy = $this->tagLabels($record);
+
+        return 'Elle disparaît de la bibliothèque'
+            .($usedBy === [] ? '' : ' et de : '.implode(', ', $usedBy))
+            .'. Cette action est définitive.';
+    }
+
+    private function deleteMedia(LibraryMedia $record): void
+    {
+        $video = $record->isVideo();
+        $record->delete();
+
+        Notification::make()->success()->title($video ? 'Vidéo supprimée' : 'Image supprimée')->send();
+        $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+    }
+
+    /**
+     * Le bouton « Supprimer » de la fenêtre d'édition : le même geste que la poubelle de la carte, avec la même
+     * confirmation (elle dit où le fichier était rangé), puis la fenêtre se ferme.
+     */
+    private function deleteFromPopupAction(): Action
+    {
+        return Action::make('deleteFromPopup')
+            ->label('Supprimer')
+            ->icon('heroicon-o-trash')
+            ->color('danger')
+            ->outlined()
+            ->requiresConfirmation()
+            ->modalHeading(fn (LibraryMedia $record): string => $record->isVideo() ? 'Supprimer cette vidéo ?' : 'Supprimer cette image ?')
+            ->modalDescription(fn (LibraryMedia $record): string => $this->deletionDescription($record))
+            ->modalSubmitActionLabel('Supprimer')
+            // La fenêtre d'édition n'a plus de fichier à éditer : elle se ferme avec lui.
+            ->cancelParentActions()
+            ->action(fn (LibraryMedia $record) => $this->deleteMedia($record));
     }
 
     /**
@@ -513,6 +541,7 @@ class MediaLibraryTable extends TableComponent
             ->modalHeading(fn (LibraryMedia $record): string => $record->isVideo() ? 'Modifier la vidéo' : 'Modifier l’image')
             ->modalWidth(Width::Screen)
             ->modalSubmitActionLabel('Enregistrer')
+            ->extraModalFooterActions(fn (): array => [$this->deleteFromPopupAction()])
             ->fillForm(fn (LibraryMedia $record): array => [
                 'name' => $record->name,
                 'caption' => $record->getCustomProperty('caption'),
