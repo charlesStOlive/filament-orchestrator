@@ -1,24 +1,75 @@
 /*
- * La référence à une image de la bibliothèque dans le RichEditor : « (image 3) »
- * (voir resources/js/rich-editor/library-image.js). Une pastille de la couleur
- * principale ; orpheline (l'image n'est plus dans la période), elle passe au rouge.
- * `.is-linked` : l'image désignée est survolée dans le panneau d'images.
+ * La référence à une image de la bibliothèque dans le RichEditor
+ * (voir resources/js/rich-editor/library-image.js) : un chip qui se tient dans la
+ * ligne comme un caractère — l'icône d'une photo, sa miniature, son numéro actuel.
+ *
+ * Chaque pièce a une taille bornée en `em` : le chip suit la taille du texte et ne
+ * peut pas s'étaler (une image ou un SVG sans taille prendrait toute la ligne). Le
+ * numéro est celui de l'image dans le panneau d'images ; le lien, lui, est la clé
+ * (`data-media`). Orpheline (l'image n'est plus dans la période), la référence passe
+ * au rouge. `.is-linked` : l'image désignée est survolée dans le panneau d'images.
  */
+/* Les styles de texte de l'éditeur donnent une marge haute à tout élément qui en suit un (`* + *`) : au chip qui en suit
+ * un autre, et à ce qu'il contient. Elle ferait descendre le chip et son numéro. */
+.library-image-ref,
+.library-image-ref * {
+    margin: 0 !important;
+}
+
 .library-image-ref {
-    display: inline-block;
-    padding: 0 0.4em;
-    border-radius: 0.375rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
+    box-sizing: border-box;
+    height: 1.6em;
+    max-width: 100%;
+    padding: 0 0.45em 0 0.35em;
+    border-radius: 0.4em;
     background: color-mix(in srgb, var(--color-primary-500, #f59e0b) 16%, transparent);
     color: var(--color-primary-700, #b45309);
+    font-size: 0.85em;
     font-weight: 600;
+    line-height: 1;
+    vertical-align: middle;
     white-space: nowrap;
     cursor: default;
     user-select: none;
     transition: box-shadow 0.15s;
 }
 
+.library-image-ref .library-image-ref__icon {
+    flex: none;
+    width: 1.15em;
+    height: 1.15em;
+}
+
+.library-image-ref .library-image-ref__thumb {
+    flex: none;
+    display: block;
+    width: 1.6em;
+    max-width: 1.6em;
+    height: 1.2em;
+    max-height: 1.2em;
+    border-radius: 0.2em;
+    object-fit: cover;
+}
+
+.library-image-ref .library-image-ref__thumb[hidden] {
+    display: none;
+}
+
+.library-image-ref__number {
+    flex: none;
+    min-width: 1ch;
+    text-align: center;
+}
+
 .library-image-ref.is-linked {
     box-shadow: 0 0 0 2px var(--color-primary-500, #f59e0b);
+}
+
+.library-image-ref.ProseMirror-selectednode {
+    box-shadow: 0 0 0 2px var(--color-primary-600, #d97706);
 }
 
 .library-image-ref.is-orphan {

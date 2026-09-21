@@ -1,17 +1,20 @@
 /*
- * La référence à une image de la bibliothèque, dans le RichEditor : « (image 3) ».
+ * La référence à une image de la bibliothèque, dans le RichEditor.
  *
  * Extension TipTap chargée par Filament à la demande (voir LibraryImagePlugin). Elle
  * réutilise l'instance de TipTap / ProseMirror de l'éditeur, exposée sur
  * `window.FilamentRichEditor.tiptap` : pas de build.
  *
  * - On y dépose une image glissée depuis la bibliothèque : la référence s'écrit là
- *   où on lâche, et la page en est avertie (événement Livewire `library-image-dropped`)
- *   pour rattacher l'image à son contenu.
- * - Le nœud ne garde que la clé de l'image. Son numéro est sa place parmi les
- *   vignettes du panneau d'images de la page (`[data-library-image]`, voir
- *   tag-images-panel) : on le relit à chaque changement du panneau, il suit donc les
- *   réordonnancements. Sans vignette correspondante, la référence est orpheline.
+ *   où on lâche, comme un caractère (aucune espace n'est ajoutée : c'est à l'auteur
+ *   de les écrire), et la page en est avertie (événement Livewire
+ *   `library-image-dropped`) pour rattacher l'image à son contenu.
+ * - Le nœud ne garde que la clé de l'image : c'est elle qui fait le lien, le numéro
+ *   change dès qu'on réordonne. Dans l'éditeur, la référence est un chip — l'icône
+ *   d'une photo, sa miniature et son numéro actuel, relus dans le panneau d'images de
+ *   la page (`[data-library-image]`, voir tag-images-panel) à chaque changement de
+ *   celui-ci. Le carnet écrit « (image N) » à sa place. Sans vignette correspondante,
+ *   la référence est orpheline.
  * - Survoler une référence met en évidence l'image dans le panneau, et
  *   inversement : ils se le disent par l'événement `library-image-hover` (window).
  */
@@ -26,13 +29,23 @@ const HOVER = 'library-image-hover'
 
 const NAME = 'libraryImage'
 
+/** La vignette de l'image dans le panneau d'images de la page, ou null. */
+const tileOf = (media) => document.querySelector(`[data-library-image="${media}"]`)
+
 /** La place de l'image (à partir de 1) dans le panneau d'images de la page, ou null. */
 const positionOf = (media) => {
-    const tile = document.querySelector(`[data-library-image="${media}"]`)
-    const position = Number(tile?.dataset.libraryPosition)
+    const position = Number(tileOf(media)?.dataset.libraryPosition)
 
     return Number.isInteger(position) && position > 0 ? position : null
 }
+
+// L'icône « photo » (Heroicons, outline), dessinée à la taille du texte.
+const ICON =
+    '<svg class="library-image-ref__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" ' +
+    'd="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 ' +
+    '2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 ' +
+    '1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>'
 
 // Ce qui redessine le numéro de chaque référence de la page, dont celles des éditeurs ouverts.
 const refreshers = new Set()
@@ -111,13 +124,28 @@ export default Node.create({
             dom.setAttribute('data-type', NAME)
             dom.setAttribute('data-media', media)
             dom.contentEditable = 'false'
+            // Un chip : l'icône, la miniature quand on la connaît, le numéro actuel. Chaque pièce a sa taille bornée
+            // dans library-image.css — une image ou un SVG sans taille s'étalerait sur toute la ligne.
+            dom.innerHTML = `${ICON}<img class="library-image-ref__thumb" alt="" hidden><span class="library-image-ref__number"></span>`
+
+            const thumb = dom.querySelector('.library-image-ref__thumb')
+            const number = dom.querySelector('.library-image-ref__number')
 
             const refresh = () => {
                 const position = positionOf(media)
+                const source = tileOf(media)?.querySelector('img')?.getAttribute('src')
 
-                dom.textContent = position ? `(image ${position})` : '(image ?)'
+                number.textContent = position ?? '?'
                 dom.classList.toggle('is-orphan', position === null)
-                dom.title = position ? '' : 'Cette image n’est plus dans les images de la période'
+                dom.title = position
+                    ? `Image n° ${position} de la période (clé ${media}) : elle reste liée à cette image si on les réordonne`
+                    : `Image ${media} : elle n’est plus dans les images de la période`
+
+                thumb.hidden = !source
+
+                if (source && thumb.getAttribute('src') !== source) {
+                    thumb.setAttribute('src', source)
+                }
             }
 
             const enter = () => announceHover(media, true)
@@ -169,17 +197,8 @@ export default Node.create({
 
                         event.preventDefault()
 
-                        // La référence, précédée d'une espace si elle suit un mot, et suivie d'une autre pour continuer à écrire.
-                        const { schema, doc } = view.state
-                        const previous = doc.resolve(at.pos).nodeBefore
-                        const content = [type.create({ media }), schema.text(' ')]
-
-                        // Au début d'un paragraphe il n'y a rien avant ; sinon, un mot ou une autre référence.
-                        if (previous && !(previous.isText && /\s$/.test(previous.text))) {
-                            content.unshift(schema.text(' '))
-                        }
-
-                        view.dispatch(view.state.tr.insert(at.pos, content))
+                        // La référence seule, comme un caractère : ni espace avant, ni espace après.
+                        view.dispatch(view.state.tr.insert(at.pos, type.create({ media })))
                         view.focus()
 
                         // La page rattache l'image à son contenu, et le panneau se redessine.
