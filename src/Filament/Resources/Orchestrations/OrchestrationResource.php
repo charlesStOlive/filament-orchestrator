@@ -8,14 +8,15 @@ use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Orchestrations\Pages\
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Orchestrations\Pages\ListOrchestrations;
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Orchestrations\RelationManagers\NodesRelationManager;
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Orchestrations\RelationManagers\TriggersRelationManager;
+use CharlesStOlive\FilamentOrchestrator\Library\RichEditor\PasteCleanupPlugin;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
 use CharlesStOlive\FilamentOrchestrator\Registry\SchemaRegistry;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\KeyValue;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -74,7 +75,17 @@ class OrchestrationResource extends Resource implements HasKnowledgeBase
                     TextInput::make('event_scope')
                         ->label('Scope événementiel')
                         ->helperText('Laisser vide pour utiliser orchestration-{id}.'),
-                    Textarea::make('description')->label('Description')->columnSpanFull(),
+                    RichEditor::make('description')
+                        ->label('Description')
+                        ->columnSpanFull()
+                        ->fileAttachments(false)
+                        ->plugins([PasteCleanupPlugin::make()])
+                        ->toolbarButtons([
+                            ['bold', 'italic', 'underline', 'strike', 'link'],
+                            ['h2', 'h3'],
+                            ['bulletList', 'orderedList', 'blockquote'],
+                            ['clearFormatting', 'undo', 'redo'],
+                        ]),
                     KeyValue::make('config')->label('Configuration')->columnSpanFull(),
                     KeyValue::make('initial_state')->label('État initial')->columnSpanFull(),
                 ]),

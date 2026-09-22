@@ -6,13 +6,14 @@ use CharlesStOlive\FilamentOrchestrator\Filament\Concerns\BelongsToConfiguredOrc
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Contents\Pages\CreateContent;
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Contents\Pages\EditContent;
 use CharlesStOlive\FilamentOrchestrator\Filament\Resources\Contents\Pages\ListContents;
+use CharlesStOlive\FilamentOrchestrator\Library\RichEditor\PasteCleanupPlugin;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorContent;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -52,7 +53,17 @@ class ContentResource extends Resource implements HasKnowledgeBase
                     ->afterStateUpdated(fn(?string $state, callable $set) => $set('key', Str::slug($state ?? ''))),
                 TextInput::make('key')->label('Clé de bibliothèque')->unique(ignoreRecord: true),
                 TextInput::make('title')->label('Titre affiché')->columnSpanFull(),
-                Textarea::make('body')->label('Texte')->rows(8)->columnSpanFull(),
+                RichEditor::make('body')
+                    ->label('Texte')
+                    ->columnSpanFull()
+                    ->fileAttachments(false)
+                    ->plugins([PasteCleanupPlugin::make()])
+                    ->toolbarButtons([
+                        ['bold', 'italic', 'underline', 'strike', 'link'],
+                        ['h2', 'h3'],
+                        ['bulletList', 'orderedList', 'blockquote'],
+                        ['clearFormatting', 'undo', 'redo'],
+                    ]),
                 SpatieMediaLibraryFileUpload::make('images')
                     ->label('Images')
                     ->collection('orchestrator_images')

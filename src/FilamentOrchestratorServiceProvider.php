@@ -9,6 +9,7 @@ use CharlesStOlive\FilamentOrchestrator\Integrations\MapScenes\MapSceneIntegrati
 use CharlesStOlive\FilamentOrchestrator\Library\Livewire\MediaLibraryTable;
 use CharlesStOlive\FilamentOrchestrator\Library\Livewire\TagImagesPanel;
 use CharlesStOlive\FilamentOrchestrator\Library\RichEditor\LibraryImagePlugin;
+use CharlesStOlive\FilamentOrchestrator\Library\RichEditor\PasteCleanupPlugin;
 use CharlesStOlive\FilamentOrchestrator\Livewire\OrchestrationPlayer;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryTag;
@@ -80,6 +81,7 @@ class FilamentOrchestratorServiceProvider extends PackageServiceProvider
         FilamentAsset::register([
             Js::make(LibraryImagePlugin::ASSET, __DIR__.'/../resources/js/rich-editor/library-image.js')->loadedOnRequest(),
             Css::make(LibraryImagePlugin::ASSET, __DIR__.'/../resources/css/library-image.css'),
+            Js::make(PasteCleanupPlugin::ASSET, __DIR__.'/../resources/js/rich-editor/paste-cleanup.js')->loadedOnRequest(),
         ], LibraryImagePlugin::ASSET_PACKAGE);
 
         $this->publishes([
