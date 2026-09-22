@@ -20,7 +20,8 @@
         "spatie/laravel-tags": "^4.12"
     },
     "suggest": {
-        "charlesstolive/filament-map": "Adds map, point and layer adapters"
+        "charlesstolive/filament-map": "Adds map, point and layer adapters",
+        "charlesstolive/filament-prism": "Required by OrchestratorContent's Correctable trait (AI spelling correction)"
     },
     "autoload": {
         "psr-4": {
