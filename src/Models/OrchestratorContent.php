@@ -6,6 +6,7 @@ use CharlesStOlive\FilamentOrchestrator\Concerns\InteractsWithOrchestrator;
 use CharlesStOlive\FilamentOrchestrator\Contracts\Orchestratable;
 use CharlesStOlive\FilamentPrism\Concerns\Correctable;
 use CharlesStOlive\FilamentPrism\Support\CorrectableField;
+use CharlesStOlive\FilamentPrism\Support\CorrectionSubject;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -14,9 +15,12 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * Dépend de charlesstolive/filament-prism pour `Correctable` (correction
  * orthographique du titre et du corps) : couplage direct assumé, les deux
  * packages étant développés ensemble pour ce projet plutôt que distribués
- * séparément (voir `suggest` dans composer.json).
+ * séparément (voir `suggest` dans composer.json). `implements
+ * CorrectionSubject` est nécessaire en plus de `use Correctable;` — un trait
+ * seul ne peut pas déclarer les interfaces de la classe qui le pose (même
+ * principe que `HasMedia`/`InteractsWithMedia` juste en dessous).
  */
-class OrchestratorContent extends Model implements HasMedia, Orchestratable
+class OrchestratorContent extends Model implements CorrectionSubject, HasMedia, Orchestratable
 {
     use Correctable;
     use InteractsWithMedia;
