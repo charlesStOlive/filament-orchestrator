@@ -35,13 +35,10 @@
         la fin (ou remplace, en mode `single`). Elle ne réagit qu'à ces images-là (pas au réordonnancement d'ici,
         qui a ses propres événements).
     --}}
-    @if ($this->images->isEmpty())
+    {{-- En mode single, la case « + » suffit à dire qu'il n'y a rien : pas de phrase en plus. --}}
+    @if ($this->images->isEmpty() && ! $single)
         <p class="text-sm text-gray-500 dark:text-gray-400">
-            @if ($single)
-                Aucune image de une : {{ $coverTags === [] ? 'aucune image ne sert de couverture.' : 'la première image de la période en tient lieu.' }}
-            @else
-                Aucune image pour l’instant. Cliquez sur « + » pour ouvrir la bibliothèque, ou glissez-en une depuis elle.
-            @endif
+            Aucune image pour l’instant. Cliquez sur « + » pour ouvrir la bibliothèque, ou glissez-en une depuis elle.
         </p>
     @endif
 
@@ -170,11 +167,7 @@
         @endif
     </div>
 
-    @if ($single)
-        <p class="text-xs text-gray-500 dark:text-gray-400">
-            Elle sert de couverture (carte d’accueil du carnet) et ne s’affiche parmi les photos de la période que si vous l’y ajoutez aussi.
-        </p>
-    @elseif ($this->images->count() > 1 || $this->fallbackCoverId !== null)
+    @if (! $single && ($this->images->count() > 1 || $this->fallbackCoverId !== null))
         <p class="text-xs text-gray-500 dark:text-gray-400">
             @if ($this->images->count() > 1)
                 Glissez pour réordonner, ou dans le texte pour y écrire une référence.
