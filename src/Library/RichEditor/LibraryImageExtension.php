@@ -79,15 +79,20 @@ class LibraryImageExtension extends Node
     }
 
     /**
+     * Toujours un `span` vide, quoi que le nœud contienne. Le parseur HTML de tiptap-php n'a pas de notion d'atome : il
+     * range dans le nœud tout ce qui se trouve entre ses balises, et le sérialiseur le ressortait. Un HTML mal formé
+     * (une balise fermante mal écrite qui laisse le `span` ouvert) suffisait donc à faire avaler au nœud le paragraphe
+     * suivant — invisible dans l'éditeur (le nœud y est un atome), mais conservé et réenregistré à chaque sauvegarde.
+     * La clé `content` court-circuite le rendu des enfants : le contenu parasite disparaît au prochain enregistrement.
+     *
      * @param  object  $node
      * @param  array<string, mixed>  $HTMLAttributes
-     * @return array<mixed>
+     * @return array<string, string>
      */
     public function renderHTML($node, $HTMLAttributes = []): array
     {
-        return [
-            'span',
-            HTML::mergeAttributes(['data-type' => self::$name], $this->options['HTMLAttributes'], $HTMLAttributes),
-        ];
+        $attributes = HTML::mergeAttributes(['data-type' => self::$name], $this->options['HTMLAttributes'], $HTMLAttributes);
+
+        return ['content' => '<span'.HTML::renderAttributes($attributes).'></span>'];
     }
 }
