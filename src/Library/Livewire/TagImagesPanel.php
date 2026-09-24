@@ -2,7 +2,6 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Library\Livewire;
 
-use CharlesStOlive\FilamentOrchestrator\Filament\Split\SidePaneEvent;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaLibraryAction;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaLibrarySidePane;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaUploadAction;
@@ -10,6 +9,7 @@ use CharlesStOlive\FilamentOrchestrator\Library\LibraryImageEvent;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryImages;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
+use CharlesStOlive\FilamentUi\Split\SidePaneEvent;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;

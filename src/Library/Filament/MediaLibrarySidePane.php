@@ -2,9 +2,9 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Library\Filament;
 
-use CharlesStOlive\FilamentOrchestrator\Filament\Split\SidePane;
 use CharlesStOlive\FilamentOrchestrator\Library\Livewire\MediaLibraryTable;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
+use CharlesStOlive\FilamentUi\Split\SidePane;
 
 /**
  * La bibliothèque d'images d'une orchestration, dans le volet latéral d'une

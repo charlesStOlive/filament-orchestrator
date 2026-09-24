@@ -47,22 +47,6 @@ class MediaLibraryAction extends Action
         return 'mediaLibrary';
     }
 
-    /**
-     * La table sans cadre ni retrait, quand l'application a les macros
-     * `borderNone()` et `paddingNone()` sur les sections : elle occupe alors toute
-     * la fenêtre au lieu d'y flotter dans un encadré.
-     */
-    private function withoutFrame(Section $section): Section
-    {
-        foreach (['borderNone', 'paddingNone'] as $macro) {
-            if ($section::hasMacro($macro)) {
-                $section->{$macro}();
-            }
-        }
-
-        return $section;
-    }
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -76,9 +60,11 @@ class MediaLibraryAction extends Action
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Fermer')
             ->schema(fn (Orchestration $record): array => [
-                $this->withoutFrame(Section::make()->schema([
+                // Sans cadre ni retrait (macros de filament-ui) : la table occupe toute la fenêtre au lieu d'y
+                // flotter dans un encadré.
+                Section::make()->borderNone()->paddingNone()->schema([
                     MediaLibraryTable::component($record, $this->getFocusTags()),
-                ])),
+                ]),
             ]);
     }
 }

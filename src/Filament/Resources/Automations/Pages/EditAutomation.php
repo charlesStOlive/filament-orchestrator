@@ -2,7 +2,7 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Filament\Resources\Automations\Pages;
 
-use CharlesStOlive\FilamentOrchestrator\Filament\Split\HasSidePane;
+use CharlesStOlive\FilamentUi\Split\HasSidePane;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 
