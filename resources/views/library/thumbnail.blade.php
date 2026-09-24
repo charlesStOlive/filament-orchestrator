@@ -59,26 +59,37 @@
         x-on:mouseenter.once="full = true"
     @endunless
 >
-    @if ($media->isVideo())
+    @if ($media->isPlayable())
         {{--
-            Une vidéo : le navigateur en montre l'image d'ouverture (`preload="metadata"`, `#t=0.1`), le serveur n'en fait
-            aucun aperçu. Ni recadrage ni image entière au survol : elle se montre entière, sur fond noir. L'icône de
-            lecture la distingue d'une image, et sa durée — lue par le navigateur — s'inscrit dès qu'il la connaît.
+            Une vidéo, locale ou YouTube : ni recadrage ni image entière au survol, elle se montre entière, sur fond
+            noir. L'icône de lecture la distingue d'une image. Une vidéo locale montre l'image que le navigateur en
+            tire (`preload="metadata"`, `#t=0.1`) et sa durée dès qu'il la connaît ; YouTube n'a que sa vignette
+            officielle, déjà téléchargée, sans durée (pas d'API).
         --}}
         <div
             data-library-video="{{ $key }}"
             x-data="{ duration: null }"
             class="absolute inset-0 overflow-hidden rounded-xl bg-black"
         >
-            <video
-                src="{{ $media->getUrl() }}#t=0.1"
-                preload="metadata"
-                muted
-                playsinline
-                draggable="false"
-                x-on:loadedmetadata="duration = Number.isFinite($el.duration) ? Math.round($el.duration) : null"
-                class="h-full w-full object-contain"
-            ></video>
+            @if ($media->isVideo())
+                <video
+                    src="{{ $media->getUrl() }}#t=0.1"
+                    preload="metadata"
+                    muted
+                    playsinline
+                    draggable="false"
+                    x-on:loadedmetadata="duration = Number.isFinite($el.duration) ? Math.round($el.duration) : null"
+                    class="h-full w-full object-contain"
+                ></video>
+            @else
+                <img
+                    src="{{ $thumbUrl }}"
+                    alt="{{ $media->name }}"
+                    loading="lazy"
+                    draggable="false"
+                    class="h-full w-full object-contain"
+                />
+            @endif
 
             <span class="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <span class="flex items-center justify-center rounded-full bg-black/55 text-white shadow backdrop-blur-sm {{ $small ? 'h-7 w-7' : 'h-12 w-12' }}">
@@ -86,13 +97,15 @@
                 </span>
             </span>
 
-            <span
-                x-show="duration !== null"
-                x-cloak
-                x-text="Math.floor(duration / 60) + ':' + String(duration % 60).padStart(2, '0')"
-                data-library-duration
-                class="pointer-events-none absolute right-1.5 {{ $small ? 'bottom-1.5 text-[10px]' : 'bottom-10 text-xs' }} rounded bg-black/65 px-1.5 py-0.5 font-medium leading-none text-white"
-            ></span>
+            @if ($media->isVideo())
+                <span
+                    x-show="duration !== null"
+                    x-cloak
+                    x-text="Math.floor(duration / 60) + ':' + String(duration % 60).padStart(2, '0')"
+                    data-library-duration
+                    class="pointer-events-none absolute right-1.5 {{ $small ? 'bottom-1.5 text-[10px]' : 'bottom-10 text-xs' }} rounded bg-black/65 px-1.5 py-0.5 font-medium leading-none text-white"
+                ></span>
+            @endif
         </div>
     @else
     {{--
@@ -133,12 +146,35 @@
     ></span>
 
     {{--
-        En haut à gauche, en colonne : le nombre de tags (petit format seulement,
-        les autres formats nomment leurs tags), puis la marque de chaque action de
-        l'application qui concerne cette image (l'étoile d'une image d'en-tête, par
-        exemple), avec son libellé au survol.
+        En haut à gauche, en colonne : d'où vient le fichier (YouTube ou image externe, sinon rien — un envoi
+        classique n'a pas besoin de le dire), le nombre de tags (petit format seulement, les autres formats
+        nomment leurs tags), puis la marque de chaque action de l'application qui concerne cette image (l'étoile
+        d'une image d'en-tête, par exemple), avec son libellé au survol.
     --}}
     <div class="pointer-events-none absolute flex flex-col items-start gap-1 {{ $small ? 'left-1.5 top-1.5' : 'left-2 top-2' }}">
+        @if ($media->isYoutube())
+            <span
+                data-library-origin-mark="youtube"
+                aria-label="Vidéo YouTube"
+                x-tooltip="{ content: 'Vidéo YouTube', theme: $store.theme }"
+                class="flex items-center justify-center rounded-full bg-white shadow pointer-events-auto {{ $pad }}"
+            >
+                <svg viewBox="0 0 28 20" class="{{ $icon }}" aria-hidden="true">
+                    <path fill="#FF0000" d="M27.4 3.1c-.3-1.2-1.3-2.1-2.5-2.4C22.8 0 14 0 14 0S5.2 0 3.1.7C1.9 1 .9 1.9.6 3.1 0 5.2 0 10 0 10s0 4.8.6 6.9c.3 1.2 1.3 2.1 2.5 2.4C5.2 20 14 20 14 20s8.8 0 10.9-.7c1.2-.3 2.2-1.2 2.5-2.4.6-2.1.6-6.9.6-6.9s0-4.8-.6-6.9z" />
+                    <path fill="#FFFFFF" d="M11 14.5V5.5L18.5 10 11 14.5z" />
+                </svg>
+            </span>
+        @elseif ($media->isExternalImage())
+            <span
+                data-library-origin-mark="external"
+                aria-label="Image externe"
+                x-tooltip="{ content: 'Image externe', theme: $store.theme }"
+                class="{{ $chip }} pointer-events-auto {{ $pad }}"
+            >
+                <x-filament::icon icon="heroicon-m-cloud" class="{{ $icon }}" />
+            </span>
+        @endif
+
         @if ($small && $tagLabels !== [])
             <span
                 data-library-tags-mark

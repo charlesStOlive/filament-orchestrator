@@ -78,6 +78,67 @@ class LibraryMedia extends Media
     }
 
     /**
+     * D'où vient le fichier : `'upload'` (un fichier envoyé, le cas normal), `'external_image'` (une URL
+     * d'image extérieure, avec son copyright) ou `'youtube'` (une vidéo YouTube, dont on ne garde que l'ID —
+     * le fichier qui la porte n'est que sa vignette officielle, téléchargée une fois).
+     */
+    public function origin(): string
+    {
+        return (string) $this->getCustomProperty('origin', 'upload');
+    }
+
+    public function isExternalImage(): bool
+    {
+        return $this->origin() === 'external_image';
+    }
+
+    public function isYoutube(): bool
+    {
+        return $this->origin() === 'youtube';
+    }
+
+    /** Une vraie vidéo locale ou une vidéo YouTube : l'affichage « sans recadrage » les traite pareil. */
+    public function isPlayable(): bool
+    {
+        return $this->isVideo() || $this->isYoutube();
+    }
+
+    public function youtubeId(): ?string
+    {
+        $id = $this->getCustomProperty('youtube_id');
+
+        return is_string($id) && $id !== '' ? $id : null;
+    }
+
+    public function youtubeUrl(): ?string
+    {
+        $url = $this->getCustomProperty('youtube_url');
+
+        return is_string($url) && $url !== '' ? $url : null;
+    }
+
+    public function youtubeEmbedUrl(): ?string
+    {
+        $id = $this->youtubeId();
+
+        return $id !== null ? "https://www.youtube.com/embed/{$id}" : null;
+    }
+
+    public function externalUrl(): ?string
+    {
+        $url = $this->getCustomProperty('external_url');
+
+        return is_string($url) && $url !== '' ? $url : null;
+    }
+
+    public function copyright(): ?string
+    {
+        $copyright = $this->getCustomProperty('copyright');
+
+        return is_string($copyright) && $copyright !== '' ? $copyright : null;
+    }
+
+    /**
      * La coupe d'une vidéo, en secondes : où le lecteur commence et où il s'arrête. Non destructive — le fichier reste
      * entier sur le disque —, le lecteur s'en tient à ce passage (fragment `#t=début,fin`). Un côté peut manquer.
      *
@@ -117,10 +178,10 @@ class LibraryMedia extends Media
         };
     }
 
-    /** 'image' ou 'video'. */
+    /** 'image' ou 'video' — un YouTube (pas de fichier vidéo réel) rejoint 'video' : c'en est une pour qui la regarde. */
     public function kind(): string
     {
-        return $this->isVideo() ? 'video' : 'image';
+        return $this->isPlayable() ? 'video' : 'image';
     }
 
     public function scopeVideos(Builder $query): Builder
@@ -131,6 +192,26 @@ class LibraryMedia extends Media
     public function scopeImages(Builder $query): Builder
     {
         return $query->where('mime_type', 'not like', 'video/%');
+    }
+
+    /** Les vidéos YouTube : leur propre type, filtrable et groupable à part des vraies vidéos et des images. */
+    public function scopeYoutube(Builder $query): Builder
+    {
+        return $query->where('custom_properties->origin', 'youtube');
+    }
+
+    /** Les images dont le fichier vient d'une URL extérieure : leur propre type, à part des images envoyées. */
+    public function scopeExternalImages(Builder $query): Builder
+    {
+        return $query->where('custom_properties->origin', 'external_image');
+    }
+
+    /** Une image envoyée par un uploader, ni YouTube ni image externe : le sens strict de « Images » dans la bibliothèque. */
+    public function scopeUploadedImages(Builder $query): Builder
+    {
+        return $query->images()->where(fn (Builder $q): Builder => $q
+            ->whereNull('custom_properties->origin')
+            ->orWhereNotIn('custom_properties->origin', ['youtube', 'external_image']));
     }
 
     /** La vignette quand elle existe (sinon l'original, le temps qu'elle soit générée). */

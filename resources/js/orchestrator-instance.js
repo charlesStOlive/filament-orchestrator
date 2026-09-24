@@ -211,6 +211,20 @@ export class OrchestratorInstance {
             imagesElement.appendChild(image)
         }
 
+        const videosElement = this.element.querySelector('[data-orchestrator-content-videos]')
+
+        if (videosElement) {
+            videosElement.replaceChildren()
+
+            for (const videoData of content.videos ?? []) {
+                const element = this.renderVideo(videoData, content)
+
+                if (element) {
+                    videosElement.appendChild(element)
+                }
+            }
+        }
+
         const buttonsElement = this.element.querySelector('[data-orchestrator-content-buttons]')
         buttonsElement.replaceChildren()
 
@@ -228,6 +242,49 @@ export class OrchestratorInstance {
             }))
             buttonsElement.appendChild(button)
         }
+    }
+
+    /**
+     * Une vidéo, locale ou YouTube : jamais recadrée, sur fond noir — le même traitement que dans la bibliothèque
+     * (voir library/thumbnail.blade.php), pour qui la regarde une vidéo reste une vidéo, d'où qu'elle vienne.
+     */
+    renderVideo(videoData, content) {
+        const wrapper = document.createElement('div')
+        wrapper.className = 'aspect-video w-full overflow-hidden rounded-lg bg-black'
+
+        if (videoData?.type === 'youtube') {
+            if (!this.safeResourceUrl(videoData.embedUrl)) {
+                return null
+            }
+
+            const iframe = document.createElement('iframe')
+            iframe.src = videoData.embedUrl
+            iframe.title = videoData.alt ?? content.title ?? ''
+            iframe.loading = 'lazy'
+            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
+            iframe.referrerPolicy = 'strict-origin-when-cross-origin'
+            iframe.allowFullscreen = true
+            iframe.className = 'h-full w-full border-0'
+            wrapper.appendChild(iframe)
+
+            return wrapper
+        }
+
+        const source = videoData?.src ?? videoData?.url
+
+        if (!this.safeResourceUrl(source)) {
+            return null
+        }
+
+        const video = document.createElement('video')
+        video.src = source
+        video.controls = true
+        video.playsInline = true
+        video.preload = 'metadata'
+        video.className = 'h-full w-full object-contain'
+        wrapper.appendChild(video)
+
+        return wrapper
     }
 
     hideContent(userInitiated = false) {

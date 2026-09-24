@@ -73,8 +73,10 @@ class OrchestrationPayloadBuilder
         // bibliothèque portant les tags que ce nœud déclare.
         if ($tags !== []) {
             $media = $library->tagged($orchestration, $tags)->values();
-            $images = $media->filter(fn ($item): bool => $item->isImage())->values();
-            $videos = $media->filter(fn ($item): bool => $item->isVideo())->values();
+            // Un YouTube n'est pas une vraie vidéo en `mime_type` (il n'a qu'une vignette) : c'en est une pour qui
+            // le regarde, donc `isPlayable()` plutôt que `isVideo()` pour la répartir avec les vidéos locales.
+            $images = $media->filter(fn ($item): bool => ! $item->isPlayable())->values();
+            $videos = $media->filter(fn ($item): bool => $item->isPlayable())->values();
 
             // Deux listes : les vidéos n'ont ni vignette ni taille d'affichage, et se numérotent à part
             // (« image 2 », « vidéo 1 »). `position` est la place du fichier dans l'ensemble, images et vidéos mêlées,

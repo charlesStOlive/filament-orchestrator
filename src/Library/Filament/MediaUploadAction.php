@@ -10,7 +10,10 @@ use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Support\Enums\Width;
 use Illuminate\Http\UploadedFile;
 use Throwable;
@@ -80,24 +83,74 @@ class MediaUploadAction extends Action
             ->modalWidth(Width::Large)
             ->modalSubmitActionLabel('Charger dans la bibliothèque')
             ->schema(fn (): array => [
-                // Les fichiers ne sont pas stockés par le champ : l'ingestor
-                // les range lui-même, une seule fois, dans la bibliothèque.
-                FileUpload::make('files')
-                    ->label('Fichiers')
-                    ->multiple()
-                    ->storeFiles(false)
-                    ->acceptedFileTypes([...LibraryMedia::IMAGE_TYPES, ...LibraryMedia::VIDEO_TYPES])
-                    ->maxFiles(50)
-                    ->maxSize(self::MAX_VIDEO_SIZE)
-                    ->required()
-                    ->helperText($this->destinationHint().' Images : 20 Mo au plus. Vidéos (MP4, WebM ou MOV) : 100 Mo au plus.'),
+                Tabs::make('source')->tabs([
+                    // Les fichiers ne sont pas stockés par le champ : l'ingestor
+                    // les range lui-même, une seule fois, dans la bibliothèque.
+                    Tab::make('upload')
+                        ->label('Importer des fichiers')
+                        ->icon('heroicon-o-arrow-up-tray')
+                        ->schema([
+                            FileUpload::make('files')
+                                ->label('Fichiers')
+                                ->multiple()
+                                ->storeFiles(false)
+                                ->acceptedFileTypes([...LibraryMedia::IMAGE_TYPES, ...LibraryMedia::VIDEO_TYPES])
+                                ->maxFiles(50)
+                                ->maxSize(self::MAX_VIDEO_SIZE)
+                                ->helperText($this->destinationHint().' Images : 20 Mo au plus. Vidéos (MP4, WebM ou MOV) : 100 Mo au plus.'),
+                        ]),
+                    Tab::make('external')
+                        ->label('Image externe')
+                        ->icon('heroicon-o-cloud')
+                        ->schema([
+                            TextInput::make('external_url')
+                                ->label('URL de l’image')
+                                ->url()
+                                ->maxLength(2048)
+                                ->helperText('L’image est copiée dans la bibliothèque depuis cette adresse.'),
+                            TextInput::make('copyright')
+                                ->label('Copyright')
+                                ->maxLength(255)
+                                ->helperText('Le nom du photographe ou de la source, à créditer.'),
+                        ]),
+                    Tab::make('youtube')
+                        ->label('YouTube')
+                        ->icon('heroicon-o-play-circle')
+                        ->schema([
+                            TextInput::make('youtube_url')
+                                ->label('Lien de la vidéo')
+                                ->maxLength(2048)
+                                ->helperText('Collez n’importe quel lien de partage YouTube : seul l’identifiant de la vidéo est gardé.'),
+                        ]),
+                ]),
             ])
             ->action(function (array $data): void {
                 $orchestration = $this->getRecord();
 
                 abort_unless($orchestration instanceof Orchestration, 404);
 
-                $this->ingest($orchestration, (array) ($data['files'] ?? []));
+                if (filled($data['files'] ?? null)) {
+                    $this->ingest($orchestration, (array) $data['files']);
+
+                    return;
+                }
+
+                if (filled($data['youtube_url'] ?? null)) {
+                    $this->ingestYoutube($orchestration, (string) $data['youtube_url']);
+
+                    return;
+                }
+
+                if (filled($data['external_url'] ?? null)) {
+                    $this->ingestExternalImage($orchestration, (string) $data['external_url'], $data['copyright'] ?? null);
+
+                    return;
+                }
+
+                Notification::make()->warning()
+                    ->title('Rien à charger')
+                    ->body('Choisissez des fichiers, une URL d’image externe ou un lien YouTube.')
+                    ->send();
             });
     }
 
@@ -140,6 +193,40 @@ class MediaUploadAction extends Action
             Notification::make()->warning()
                 ->title(count($failed).' fichier(s) n’ont pas pu être ajoutés')
                 ->body(implode(', ', $failed))
+                ->send();
+        }
+    }
+
+    private function ingestExternalImage(Orchestration $orchestration, string $url, ?string $copyright): void
+    {
+        $context = new IngestContext(tags: $this->getTags(), source: $this->evaluate($this->source));
+
+        try {
+            app(LibraryIngestor::class)->ingestExternalImage($orchestration, $url, $copyright, $context);
+            Notification::make()->success()->title('Image ajoutée à la bibliothèque')->send();
+            $this->getLivewire()?->dispatch(self::UPDATED_EVENT, orchestrationId: $orchestration->getKey());
+        } catch (Throwable $exception) {
+            report($exception);
+            Notification::make()->danger()
+                ->title('L’image n’a pas pu être ajoutée')
+                ->body('Vérifiez que l’adresse pointe bien vers une image accessible.')
+                ->send();
+        }
+    }
+
+    private function ingestYoutube(Orchestration $orchestration, string $urlOrId): void
+    {
+        $context = new IngestContext(tags: $this->getTags(), source: $this->evaluate($this->source));
+
+        try {
+            app(LibraryIngestor::class)->ingestYoutube($orchestration, $urlOrId, $context);
+            Notification::make()->success()->title('Vidéo YouTube ajoutée à la bibliothèque')->send();
+            $this->getLivewire()?->dispatch(self::UPDATED_EVENT, orchestrationId: $orchestration->getKey());
+        } catch (Throwable $exception) {
+            report($exception);
+            Notification::make()->danger()
+                ->title('La vidéo n’a pas pu être ajoutée')
+                ->body('Vérifiez que le lien pointe bien vers une vidéo YouTube.')
                 ->send();
         }
     }

@@ -27,6 +27,7 @@
                 aria-label="Fermer le contenu">&times;</button>
         </div>
         <div data-orchestrator-content-images class="mt-4 grid gap-3 sm:grid-cols-2"></div>
+        <div data-orchestrator-content-videos class="mt-4 grid gap-3 sm:grid-cols-2"></div>
         <div data-orchestrator-content-body class="mt-4 whitespace-pre-wrap text-gray-700 dark:text-gray-200"></div>
         <div data-orchestrator-content-buttons class="mt-5 flex flex-wrap gap-2"></div>
     </section>

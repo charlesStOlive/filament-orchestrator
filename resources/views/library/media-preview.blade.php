@@ -6,7 +6,20 @@
     boutons y reportent l'endroit où l'on est arrivé, dans les champs du bandeau gauche (`data-trim`), qui restent
     modifiables au clavier. « Voir la coupe » joue le passage, de son début à sa fin.
 --}}
-@if ($media->isVideo())
+@if ($media->isYoutube())
+    {{-- Pas d'API YouTube : rien à mesurer ni à couper ici, seulement l'iframe officielle. --}}
+    <div data-library-preview="youtube" class="flex h-full items-center justify-center overflow-hidden rounded-lg bg-black lg:sticky lg:top-0">
+        <iframe
+            src="{{ $media->youtubeEmbedUrl() }}"
+            title="{{ $media->getCustomProperty('alt', $media->name) }}"
+            loading="lazy"
+            class="aspect-video max-h-[72vh] w-full border-0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen
+        ></iframe>
+    </div>
+@elseif ($media->isVideo())
     <div
         data-library-preview="video"
         class="flex h-full flex-col gap-3 lg:sticky lg:top-0"

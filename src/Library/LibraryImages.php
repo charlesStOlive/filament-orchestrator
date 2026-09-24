@@ -181,6 +181,10 @@ final class LibraryImages
      */
     public function payload(LibraryMedia $media, bool $header = false): array
     {
+        if ($media->isYoutube()) {
+            return $this->youtubePayload($media);
+        }
+
         if ($media->isVideo()) {
             return $this->videoPayload($media);
         }
@@ -201,7 +205,37 @@ final class LibraryImages
             'name' => $media->name,
             'alt' => $media->getCustomProperty('alt', $media->name),
             'caption' => $media->getCustomProperty('caption'),
+            'copyright' => $media->copyright(),
             'header' => $header,
+        ];
+    }
+
+    /**
+     * Ce que le navigateur reçoit d'une vidéo YouTube : son identifiant et l'adresse à mettre dans un iframe pour la
+     * lire. La vignette officielle, elle, a bien été téléchargée comme un fichier de la bibliothèque : ses
+     * conversions (`thumb`/`medium`/`large`) existent réellement, gardées ici au même titre que celles d'une image
+     * — par prudence, pour qui n'aurait pas encore de branche à part pour `type: 'youtube'` — même si l'affichage
+     * normal d'une vidéo YouTube passe par l'iframe (`embedUrl`), pas par ces images.
+     *
+     * @return array<string, mixed>
+     */
+    private function youtubePayload(LibraryMedia $media): array
+    {
+        $dimensions = $media->dimensions();
+
+        return [
+            'type' => 'youtube',
+            'id' => $media->getKey(),
+            'youtubeId' => $media->youtubeId(),
+            'embedUrl' => $media->youtubeEmbedUrl(),
+            'thumb' => $media->thumbUrl(),
+            'medium' => $media->conversionUrl('medium'),
+            'large' => $media->conversionUrl('large'),
+            'width' => $dimensions['width'] ?? null,
+            'height' => $dimensions['height'] ?? null,
+            'name' => $media->name,
+            'alt' => $media->getCustomProperty('alt', $media->name),
+            'caption' => $media->getCustomProperty('caption'),
         ];
     }
 

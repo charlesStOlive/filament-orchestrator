@@ -10,8 +10,10 @@ use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaUploadAction;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryAction;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryContext;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryImages;
+use CharlesStOlive\FilamentOrchestrator\Library\LibraryIngestor;
 use CharlesStOlive\FilamentOrchestrator\Library\MediaMetadata;
 use CharlesStOlive\FilamentOrchestrator\Library\TagLabels;
+use CharlesStOlive\FilamentOrchestrator\Library\YoutubeUrl;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryTag;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
@@ -295,13 +297,20 @@ class MediaLibraryTable extends TableComponent
         return [
             ...$this->focusFilters(),
 
-            // Images ou vidéos : reconnues à leur type de fichier.
+            // Images, vidéos, YouTube ou images externes : reconnus à leur type de fichier et à leur origine.
             SelectFilter::make('kind')
                 ->label('Type')
-                ->options(['image' => 'Images', 'video' => 'Vidéos'])
+                ->options([
+                    'image' => 'Images',
+                    'video' => 'Vidéos',
+                    'youtube' => 'YouTube',
+                    'external_image' => 'Images externes',
+                ])
                 ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
                     'video' => $query->videos(),
-                    'image' => $query->images(),
+                    'image' => $query->uploadedImages(),
+                    'youtube' => $query->youtube(),
+                    'external_image' => $query->externalImages(),
                     default => $query,
                 }),
 
@@ -396,10 +405,31 @@ class MediaLibraryTable extends TableComponent
             ->id('kind')
             ->label('Type')
             ->titlePrefixedWithLabel(false)
-            ->getKeyFromRecordUsing(fn (LibraryMedia $record): string => $record->kind())
-            ->getTitleFromRecordUsing(fn (LibraryMedia $record): string => $record->isVideo() ? 'Vidéos' : 'Images')
+            ->getKeyFromRecordUsing(fn (LibraryMedia $record): string => $this->kindKey($record))
+            ->getTitleFromRecordUsing(fn (LibraryMedia $record): string => match ($this->kindKey($record)) {
+                'video' => 'Vidéos',
+                'youtube' => 'YouTube',
+                'external_image' => 'Images externes',
+                default => 'Images',
+            })
             ->orderQueryUsing(fn (Builder $query, string $direction): Builder => $query->orderBy('mime_type', $direction))
-            ->scopeQueryByKeyUsing(fn (Builder $query, ?string $key): Builder => $key === 'video' ? $query->videos() : $query->images());
+            ->scopeQueryByKeyUsing(fn (Builder $query, ?string $key): Builder => match ($key) {
+                'video' => $query->videos(),
+                'youtube' => $query->youtube(),
+                'external_image' => $query->externalImages(),
+                default => $query->uploadedImages(),
+            });
+    }
+
+    /** 'image', 'video', 'youtube' ou 'external_image' : le type au sens du filtre et du groupement « Type ». */
+    private function kindKey(LibraryMedia $record): string
+    {
+        return match (true) {
+            $record->isYoutube() => 'youtube',
+            $record->isExternalImage() => 'external_image',
+            $record->isVideo() => 'video',
+            default => 'image',
+        };
     }
 
     private function dateGroup(): Group
@@ -538,7 +568,12 @@ class MediaLibraryTable extends TableComponent
             // affiché. Il doit rester dans le DOM, Filament n'ouvre pas une
             // action masquée.
             ->extraAttributes(['class' => 'hidden'])
-            ->modalHeading(fn (LibraryMedia $record): string => $record->isVideo() ? 'Modifier la vidéo' : 'Modifier l’image')
+            ->modalHeading(fn (LibraryMedia $record): string => match (true) {
+                $record->isYoutube() => 'Modifier la vidéo YouTube',
+                $record->isExternalImage() => 'Modifier l’image externe',
+                $record->isVideo() => 'Modifier la vidéo',
+                default => 'Modifier l’image',
+            })
             ->modalWidth(Width::Screen)
             ->modalSubmitActionLabel('Enregistrer')
             ->extraModalFooterActions(fn (): array => [$this->deleteFromPopupAction()])
@@ -552,6 +587,8 @@ class MediaLibraryTable extends TableComponent
                 'tags' => $record->tagNames($this->orchestration->libraryTagType()),
                 'trim_start' => $record->trim()['start'],
                 'trim_end' => $record->trim()['end'],
+                'copyright' => $record->copyright(),
+                'youtube_url' => $record->youtubeUrl(),
             ])
             ->schema([
                 Grid::make(['default' => 1, 'lg' => 5])->gap()->schema([
@@ -569,13 +606,22 @@ class MediaLibraryTable extends TableComponent
                             // sélecteurs de date) ne la décalerait que d'un cran de plus (voir LibraryMedia::takenAt()).
                             ->timezone('UTC')
                             ->seconds(false)
+                            ->visible(fn (LibraryMedia $record): bool => ! $record->isYoutube())
                             ->helperText('Pour dater un fichier sans date de prise de vue, ou corriger celle de l’appareil.'),
-                        Grid::make(2)->schema([
-                            TextInput::make('latitude')->label('Latitude')->numeric()->minValue(-90)->maxValue(90)
-                                ->requiredWith('longitude'),
-                            TextInput::make('longitude')->label('Longitude')->numeric()->minValue(-180)->maxValue(180)
-                                ->requiredWith('latitude'),
-                        ]),
+                        Grid::make(2)
+                            ->visible(fn (LibraryMedia $record): bool => ! $record->isYoutube())
+                            ->schema([
+                                TextInput::make('latitude')->label('Latitude')->numeric()->minValue(-90)->maxValue(90)
+                                    ->requiredWith('longitude'),
+                                TextInput::make('longitude')->label('Longitude')->numeric()->minValue(-180)->maxValue(180)
+                                    ->requiredWith('latitude'),
+                            ]),
+                        TextInput::make('copyright')->label('Copyright')->maxLength(255)
+                            ->visible(fn (LibraryMedia $record): bool => $record->isExternalImage())
+                            ->helperText('Le nom du photographe ou de la source, à créditer.'),
+                        TextInput::make('youtube_url')->label('Lien de la vidéo')->maxLength(2048)
+                            ->visible(fn (LibraryMedia $record): bool => $record->isYoutube())
+                            ->helperText('Un autre lien remplace la vidéo : la vignette est retéléchargée.'),
                         $this->tagSelect('tags', 'Tags'),
                         // La coupe d'une vidéo : où le lecteur commence et s'arrête. Le fichier reste entier ; les boutons
                         // du lecteur (library/media-preview) reportent ici l'endroit où l'on est arrivé.
@@ -600,6 +646,40 @@ class MediaLibraryTable extends TableComponent
                 ]),
             ])
             ->action(function (LibraryMedia $record, array $data): void {
+                // Un autre lien YouTube collé ici : au fond, une autre vidéo. On la ré-ingère (nouvelle vignette),
+                // en gardant nom/légende/texte alternatif/tags de la fiche qu'elle remplace, puis l'ancienne fiche
+                // disparaît. Le reste de l'action ne s'applique plus : elle s'arrête ici dans ce cas.
+                if ($record->isYoutube()) {
+                    $newVideoId = YoutubeUrl::id($data['youtube_url'] ?? null);
+
+                    if ($newVideoId !== null && $newVideoId !== $record->youtubeId()) {
+                        $fresh = app(LibraryIngestor::class)->ingestYoutube($this->orchestration, $newVideoId);
+
+                        foreach (['caption', 'alt'] as $property) {
+                            filled($record->getCustomProperty($property))
+                                ? $fresh->setCustomProperty($property, $record->getCustomProperty($property))
+                                : $fresh->forgetCustomProperty($property);
+                        }
+
+                        $fresh->forceFill([
+                            'name' => filled($data['name'] ?? null) ? trim((string) $data['name']) : $record->name,
+                        ])->save();
+                        $fresh->syncTagsWithType($this->cleanTags($data['tags'] ?? []), $this->orchestration->libraryTagType());
+
+                        $record->delete();
+
+                        $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+
+                        return;
+                    }
+                }
+
+                if ($record->isExternalImage()) {
+                    filled($data['copyright'] ?? null)
+                        ? $record->setCustomProperty('copyright', trim((string) $data['copyright']))
+                        : $record->forgetCustomProperty('copyright');
+                }
+
                 $submitted = filled($data['taken_at'] ?? null) ? CarbonImmutable::parse($data['taken_at']) : null;
 
                 // Le sélecteur n'a pas de secondes : la date qu'on lui a donnée (« 11:09:33 ») revient « 11:09:00 ». La comparer à

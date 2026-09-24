@@ -11,7 +11,20 @@
     <dd class="min-w-0 break-words font-medium text-gray-950 dark:text-white">{{ $media->file_name }}</dd>
 
     <dt class="text-gray-500 dark:text-gray-400">Type</dt>
-    <dd class="text-gray-950 dark:text-white">{{ $media->isVideo() ? 'Vidéo' : 'Image' }} · {{ strtoupper(str_replace(['image/', 'video/', 'quicktime'], ['', '', 'mov'], (string) $media->mime_type)) }}</dd>
+    <dd class="text-gray-950 dark:text-white">
+        @if ($media->isYoutube())
+            Vidéo YouTube
+        @elseif ($media->isExternalImage())
+            Image externe
+        @else
+            {{ $media->isVideo() ? 'Vidéo' : 'Image' }} · {{ strtoupper(str_replace(['image/', 'video/', 'quicktime'], ['', '', 'mov'], (string) $media->mime_type)) }}
+        @endif
+    </dd>
+
+    @if ($media->isExternalImage() && $media->copyright())
+        <dt class="text-gray-500 dark:text-gray-400">Copyright</dt>
+        <dd class="text-gray-950 dark:text-white">{{ $media->copyright() }}</dd>
+    @endif
 
     <dt class="text-gray-500 dark:text-gray-400">Poids</dt>
     <dd class="text-gray-950 dark:text-white">{{ $media->human_readable_size }}</dd>
@@ -28,12 +41,36 @@
     <dd class="text-gray-950 dark:text-white">{{ $media->created_at?->locale('fr')->translatedFormat('j F Y à H:i') }}</dd>
 </dl>
 
-<a
-    href="{{ $media->getUrl() }}"
-    target="_blank"
-    rel="noopener"
-    class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
->
-    <x-filament::icon icon="heroicon-m-arrow-top-right-on-square" class="h-3.5 w-3.5" />
-    Ouvrir le fichier d’origine
-</a>
+@if ($media->isYoutube())
+    <a
+        href="{{ $media->youtubeUrl() }}"
+        target="_blank"
+        rel="noopener"
+        class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
+    >
+        <x-filament::icon icon="heroicon-m-arrow-top-right-on-square" class="h-3.5 w-3.5" />
+        Voir sur YouTube
+    </a>
+@else
+    <a
+        href="{{ $media->getUrl() }}"
+        target="_blank"
+        rel="noopener"
+        class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
+    >
+        <x-filament::icon icon="heroicon-m-arrow-top-right-on-square" class="h-3.5 w-3.5" />
+        Ouvrir le fichier d’origine
+    </a>
+
+    @if ($media->isExternalImage() && $media->externalUrl())
+        <a
+            href="{{ $media->externalUrl() }}"
+            target="_blank"
+            rel="noopener"
+            class="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
+        >
+            <x-filament::icon icon="heroicon-m-arrow-top-right-on-square" class="h-3.5 w-3.5" />
+            Voir l’image d’origine
+        </a>
+    @endif
+@endif
