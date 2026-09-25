@@ -266,6 +266,36 @@ class HeaderImageAction extends LibraryAction
 }
 ```
 
+Une action qui a besoin de **réglages** avant de s'exécuter déclare un formulaire
+(`schema()`) : la bibliothèque l'ouvre en modale avec les images cochées sous la
+main, puis passe ce qui a été saisi à `submit()` (au lieu de `handle()`). Ce qui
+rend la sélection irrecevable — `single()`, `accepts()`, et `refuses()` pour la
+sélection entière (trop peu d'images…) — est dit **avant** d'ouvrir la modale.
+Le paquet n'y met rien de spécifique : une application s'en sert, par exemple,
+pour demander un traitement à une IA sans que ce paquet en dépende.
+
+```php
+class CaptionAction extends LibraryAction
+{
+    protected function setUp(): void
+    {
+        $this->name('caption')->label('Légender')->modalSubmitLabel('Appliquer');
+    }
+
+    public function refuses(Collection $media): ?string
+    {
+        return $media->count() > 20 ? 'Cochez 20 images au plus' : null;
+    }
+
+    public function schema(Collection $media, LibraryContext $context): ?array
+    {
+        return [TextInput::make('caption')->label('Légende')->required()];
+    }
+
+    public function submit(Collection $media, LibraryContext $context, array $data): ?string { /* … */ }
+}
+```
+
 Les tags d'une bibliothèque sont rangés sous un type propre à l'orchestration :
 deux voyages ne partagent jamais un tag. La configuration se trouve sous la clé
 `library` ; comme la fusion de config est superficielle, une application qui la

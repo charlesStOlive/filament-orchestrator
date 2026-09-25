@@ -747,15 +747,22 @@ class MediaLibraryTable extends TableComponent
             ->dropdownPlacement('bottom-start');
     }
 
-    /** Une action qui porte sur les images cochées, et refuse de s'ouvrir si aucune ne l'est. */
-    private function selectionAction(string $name): Action
+    /**
+     * Une action qui porte sur les images cochées, et refuse de s'ouvrir si aucune ne l'est — ou si
+     * `$refuse` trouve à redire à la sélection (le message à montrer, ou null).
+     *
+     * @param  (Closure(Collection<int, LibraryMedia>): ?string)|null  $refuse
+     */
+    private function selectionAction(string $name, ?Closure $refuse = null): Action
     {
         return Action::make($name)
             ->accessSelectedRecords()
             ->deselectRecordsAfterCompletion()
-            ->mountUsing(function (Action $action, ?Schema $schema, Collection $selectedRecords): void {
-                if ($selectedRecords->isEmpty()) {
-                    Notification::make()->warning()->title('Cochez d’abord des images')->send();
+            ->mountUsing(function (Action $action, ?Schema $schema, Collection $selectedRecords) use ($refuse): void {
+                $refusal = $selectedRecords->isEmpty() ? 'Cochez d’abord des images' : ($refuse ? $refuse($selectedRecords) : null);
+
+                if ($refusal !== null) {
+                    Notification::make()->warning()->title($refusal)->send();
 
                     $action->halt();
                 }
@@ -806,25 +813,27 @@ class MediaLibraryTable extends TableComponent
     private function libraryActionButtons(bool $shortcut): array
     {
         return array_map(
-            fn (LibraryAction $libraryAction): Action => $this->selectionAction('library'.Str::studly($libraryAction->getName()))
+            fn (LibraryAction $libraryAction): Action => $this
+                ->selectionAction(
+                    'library'.Str::studly($libraryAction->getName()),
+                    // Dit avant d'ouvrir une éventuelle modale de réglages, pas après qu'on l'a remplie.
+                    fn (Collection $selectedRecords): ?string => match (true) {
+                        $libraryAction->isSingle() && $selectedRecords->count() !== 1 => 'Cochez une seule image',
+                        $selectedRecords->contains(fn (LibraryMedia $media): bool => ! $libraryAction->accepts($media)) => $libraryAction->getRefusal(),
+                        default => $libraryAction->refuses($selectedRecords->values()),
+                    },
+                )
                 // Un raccourci de la barre d'outils manque de place : libellé court, le complet en infobulle.
                 ->label($shortcut ? $libraryAction->getShortLabel() : $libraryAction->getLabel())
                 ->tooltip($shortcut ? $libraryAction->getLabel() : null)
                 ->icon($libraryAction->getIcon())
-                ->action(function (Collection $selectedRecords) use ($libraryAction): void {
-                    if ($libraryAction->isSingle() && $selectedRecords->count() !== 1) {
-                        Notification::make()->warning()->title('Cochez une seule image')->send();
-
-                        return;
-                    }
-
-                    if ($selectedRecords->contains(fn (LibraryMedia $media): bool => ! $libraryAction->accepts($media))) {
-                        Notification::make()->warning()->title($libraryAction->getRefusal())->send();
-
-                        return;
-                    }
-
-                    $title = $libraryAction->handle($selectedRecords->values(), $this->libraryContext);
+                // Un formulaire de réglages, quand l'action en déclare un (voir LibraryAction::schema()).
+                ->schema(fn (Collection $selectedRecords): ?array => $libraryAction->schema($selectedRecords->values(), $this->libraryContext))
+                ->modalHeading($libraryAction->getLabel())
+                ->modalWidth($libraryAction->getModalWidth())
+                ->modalSubmitActionLabel($libraryAction->getModalSubmitLabel())
+                ->action(function (Collection $selectedRecords, array $data) use ($libraryAction): void {
+                    $title = $libraryAction->submit($selectedRecords->values(), $this->libraryContext, $data);
 
                     Notification::make()->success()->title($title ?? $libraryAction->getLabel())->send();
                     $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);

@@ -3,7 +3,10 @@
 namespace CharlesStOlive\FilamentOrchestrator\Library;
 
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
+use Filament\Schemas\Components\Component;
+use Filament\Support\Enums\Width;
 use Illuminate\Support\Collection;
+use LogicException;
 
 /**
  * Une action que l'application ajoute à la bibliothèque : elle rejoint le menu
@@ -27,6 +30,21 @@ use Illuminate\Support\Collection;
  *
  * `appliesTo()` décide si l'action est proposée : la bibliothèque générale et
  * celle ouverte depuis une journée n'ont pas les mêmes.
+ *
+ * **Une action qui demande des réglages** déclare un formulaire (`schema()`) :
+ * la bibliothèque l'ouvre dans une modale, avec les images cochées sous la
+ * main, et passe ce qui a été saisi à `submit()` plutôt qu'à `handle()`. Les
+ * refus (`single()`, `accepts()`) sont dits avant que la modale s'ouvre.
+ *
+ *     class CaptionAction extends LibraryAction
+ *     {
+ *         public function schema(Collection $media, LibraryContext $context): ?array
+ *         {
+ *             return [TextInput::make('caption')->label('Légende')->required()];
+ *         }
+ *
+ *         public function submit(Collection $media, LibraryContext $context, array $data): ?string { … }
+ *     }
  */
 abstract class LibraryAction
 {
@@ -43,6 +61,10 @@ abstract class LibraryAction
     protected ?string $shortLabel = null;
 
     protected string $refusal = 'Cette action ne s’applique pas à cette sélection';
+
+    protected Width|string $modalWidth = Width::TwoExtraLarge;
+
+    protected ?string $modalSubmitLabel = null;
 
     final public function __construct()
     {
@@ -133,6 +155,17 @@ abstract class LibraryAction
         return true;
     }
 
+    /**
+     * Ce que l'action trouve à redire à la sélection entière (trop peu d'images, trop...), dit avant
+     * d'ouvrir sa modale ou de l'exécuter ; `null` : rien. S'ajoute à `single()` et `accepts()`.
+     *
+     * @param  Collection<int, LibraryMedia>  $media
+     */
+    public function refuses(Collection $media): ?string
+    {
+        return null;
+    }
+
     /** L'action porte sur une seule image : la bibliothèque refuse une sélection plus large. */
     public function single(bool $single = true): static
     {
@@ -174,10 +207,63 @@ abstract class LibraryAction
     }
 
     /**
+     * Le formulaire de réglages de l'action, ouvert en modale avant de l'exécuter ; `null` : aucun,
+     * l'action s'exécute au clic (`handle()`).
+     *
+     * @param  Collection<int, LibraryMedia>  $media  Les images cochées.
+     * @return array<int, Component>|null
+     */
+    public function schema(Collection $media, LibraryContext $context): ?array
+    {
+        return null;
+    }
+
+    public function modalWidth(Width|string $width): static
+    {
+        $this->modalWidth = $width;
+
+        return $this;
+    }
+
+    public function getModalWidth(): Width|string
+    {
+        return $this->modalWidth;
+    }
+
+    /** Le libellé du bouton qui valide la modale de réglages. */
+    public function modalSubmitLabel(?string $label): static
+    {
+        $this->modalSubmitLabel = $label;
+
+        return $this;
+    }
+
+    public function getModalSubmitLabel(): ?string
+    {
+        return $this->modalSubmitLabel;
+    }
+
+    /**
      * Exécute l'action sur les images cochées.
      *
      * @param  Collection<int, LibraryMedia>  $media
      * @return string|null Le message de la notification de succès.
      */
-    abstract public function handle(Collection $media, LibraryContext $context): ?string;
+    public function handle(Collection $media, LibraryContext $context): ?string
+    {
+        throw new LogicException(static::class.' doit définir handle() — ou submit(), si elle a un formulaire (schema()).');
+    }
+
+    /**
+     * Exécute l'action avec les réglages saisis dans son formulaire (`schema()`). Sans formulaire,
+     * `$data` est vide et c'est `handle()` qui s'exécute.
+     *
+     * @param  Collection<int, LibraryMedia>  $media
+     * @param  array<string, mixed>  $data
+     * @return string|null Le message de la notification de succès.
+     */
+    public function submit(Collection $media, LibraryContext $context, array $data): ?string
+    {
+        return $this->handle($media, $context);
+    }
 }
