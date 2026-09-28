@@ -190,8 +190,16 @@ class MediaLibraryTable extends TableComponent
 
         $this->focusTags = array_values(array_filter((array) ($context['tags'] ?? []), 'is_string'));
 
-        // Ce que l'on a calculé des anciens tags est périmé.
+        // Ce que l'on a calculé des anciens tags est périmé, la table aussi : construite au début de la requête, elle a
+        // les filtres, libellés (« Seulement : … », « Ajouter à : … ») et actions de l'ancienne journée.
         unset($this->libraryContext, $this->focusLabel);
+        $this->bootedInteractsWithTable();
+
+        // Un filtre sans état, Filament l'applique sans l'indiquer : « Seulement : … », apparu avec la journée, part inactif.
+        if ($this->focusTags !== []) {
+            $this->tableFilters['in_focus'] ??= ['isActive' => false];
+            $this->tableDeferredFilters['in_focus'] ??= ['isActive' => false];
+        }
 
         // Un contexte qui demande un filtre (les croquis, pour en choisir un) le pose. Le contexte suivant, s'il n'en
         // demande pas, le retire — s'il est toujours tel qu'on l'a posé : un filtre choisi à la main reste.
