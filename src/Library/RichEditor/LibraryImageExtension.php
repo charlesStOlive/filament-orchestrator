@@ -13,6 +13,11 @@ use Tiptap\Utils\HTML;
  * les réordonne. L'éditeur (voir resources/js/rich-editor/library-image.js) et la page publique les recalculent donc à
  * chaque affichage : le HTML enregistré est un `span` vide, qui ne porte que les clés et le genre. Une référence d'avant
  * les vidéos (`data-media="7"`, sans genre) se lit comme une image.
+ *
+ * Deux textes facultatifs s'y ajoutent, écrits dans l'éditeur :
+ * - `label` (`data-label`) : le mot du texte que la référence a englobé (on a laissé la carte un moment au milieu du mot
+ *   en la glissant). Le carnet écrit alors ce mot, cliquable, au lieu de « (image 3) ».
+ * - `title` (`data-title`) : un titre, que le carnet montre au survol de la référence.
  */
 class LibraryImageExtension extends Node
 {
@@ -45,6 +50,16 @@ class LibraryImageExtension extends Node
                 'parseHTML' => fn ($DOMNode) => self::kind($DOMNode->getAttribute('data-kind')),
                 'renderHTML' => fn ($attributes) => ['data-kind' => self::kind($attributes->kind ?? null)],
             ],
+            'label' => [
+                'default' => null,
+                'parseHTML' => fn ($DOMNode) => self::text($DOMNode->getAttribute('data-label')),
+                'renderHTML' => fn ($attributes) => self::textAttribute('data-label', $attributes->label ?? null),
+            ],
+            'title' => [
+                'default' => null,
+                'parseHTML' => fn ($DOMNode) => self::text($DOMNode->getAttribute('data-title')),
+                'renderHTML' => fn ($attributes) => self::textAttribute('data-title', $attributes->title ?? null),
+            ],
         ];
     }
 
@@ -70,6 +85,22 @@ class LibraryImageExtension extends Node
         }
 
         return $ids;
+    }
+
+    /** Un texte facultatif (mot englobé, titre) : sur une ligne, sans espaces aux bords ; null s'il est vide. */
+    public static function text(mixed $text): ?string
+    {
+        $text = is_string($text) ? trim((string) preg_replace('/\s+/u', ' ', $text)) : '';
+
+        return $text === '' ? null : $text;
+    }
+
+    /** @return array<string, string> L'attribut HTML d'un texte facultatif, ou rien s'il est vide. */
+    private static function textAttribute(string $name, mixed $text): array
+    {
+        $text = self::text($text);
+
+        return $text === null ? [] : [$name => $text];
     }
 
     /** 'video' ou 'image' : tout autre genre (ou aucun, avant les vidéos) est une image. */

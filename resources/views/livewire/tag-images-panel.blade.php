@@ -66,15 +66,18 @@
         Une vignette se glisse aussi vers le texte de la période, où elle écrit sa référence : elle porte la même donnée
         qu'une carte de la bibliothèque (clé, genre, voyage). Sans cela, SortableJS y mettrait le texte de
         l'élément — ses espaces et son numéro —, que l'éditeur déposerait tel quel, en autant de paragraphes. Le marqueur
-        `-panel` dit à la case de dépôt que ce glisser vient d'ici : elle n'a rien à en faire.
+        `-panel` dit à la case de dépôt que ce glisser vient d'ici : elle n'a rien à en faire. Le glisser montre une petite
+        étiquette (« Image 3 ») plutôt que la vignette : on voit où l'on vise dans le texte (voir library-drag.js).
     --}}
     <div
         @unless ($single)
             data-library-sortable
             x-sortable
             x-init="$nextTick(() => $el.sortable?.option('setData', (dataTransfer, dragEl) => {
-                dataTransfer.setData(@js($this->dragType()), JSON.stringify({ orchestration: {{ $orchestrationId }}, items: [{ media: Number(dragEl.getAttribute('x-sortable-item')), kind: dragEl.dataset.libraryKind }] }))
+                const items = [{ media: Number(dragEl.getAttribute('x-sortable-item')), kind: dragEl.dataset.libraryKind }]
+                dataTransfer.setData(@js($this->dragType()), JSON.stringify({ orchestration: {{ $orchestrationId }}, items }))
                 dataTransfer.setData(@js($this->dragType().'-panel'), '1')
+                window.libraryDragGhost?.(dataTransfer, items)
             }))"
             x-on:end.stop="$wire.reorder($event.target.sortable.toArray())"
         @else

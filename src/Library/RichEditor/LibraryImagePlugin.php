@@ -22,6 +22,9 @@ class LibraryImagePlugin implements RichContentPlugin
 
     public const ASSET_PACKAGE = 'charlesstolive/filament-orchestrator';
 
+    /** Le fantôme du glisser d'une image (voir resources/js/library-drag.js), chargé sur toutes les pages. */
+    public const DRAG_ASSET = 'library-drag';
+
     public static function make(): static
     {
         return app(static::class);

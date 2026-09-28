@@ -230,6 +230,13 @@ médias). Elles se déposent :
   calculé à l'affichage, d'après l'ordre courant. Une référence dont le média a quitté
   l'ensemble est *orpheline* (rouge dans l'éditeur ; le front l'ignore).
 
+Le glisser montre une petite étiquette (`resources/js/library-drag.js`, « Image 3 » ou
+le nom du fichier) plutôt que la carte, et l'éditeur un trait épais au point de dépôt.
+Resté un moment au milieu d'un mot, le glisser l'englobe : la référence prend ce mot
+(`data-label`), que le front peut écrire à la place de « (image 3) ». Un clic sur la
+référence ouvre une petite fenêtre : un titre (`data-title`), le mot, la suppression
+(le mot englobé reste dans le texte).
+
 Le survol d'une référence et de la vignette correspondante se répondent par
 l'événement navigateur `LibraryImageEvent::HOVER`. Un dépôt dans le texte émet
 `LibraryImageEvent::DROPPED` : c'est à la page d'y répondre (rattacher l'image à la

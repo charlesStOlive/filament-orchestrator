@@ -21,7 +21,8 @@
     période, l'image s'y ajoute ; déposée dans un texte, elle y écrit sa référence
     « (image N) » et s'ajoute aussi à la période (voir LibraryImages::DRAG_TYPE). Le
     glisser porte la clé de chaque fichier glissé, sa nature (image ou vidéo) et celle du voyage, au format JSON — et
-    plusieurs quand la carte est cochée avec d'autres : on les glisse toutes ensemble.
+    plusieurs quand la carte est cochée avec d'autres : on les glisse toutes ensemble. Le glisser ne montre pas la carte
+    mais une petite étiquette (son nom, ou son numéro dans la période), qui laisse voir où l'on vise.
 
     Toute la carte ouvre la fiche : le crayon n'est qu'un repère. La poubelle,
     elle, est un vrai bouton : `.stop` l'empêche d'ouvrir aussi la fiche. En
@@ -31,6 +32,7 @@
     class="group aspect-square w-full cursor-grab active:cursor-grabbing"
     data-library-card="{{ $key }}"
     data-library-kind="{{ $media->kind() }}"
+    data-library-name="{{ $media->name }}"
     draggable="true"
     x-on:dragstart="
         $event.dataTransfer.effectAllowed = 'copy'
@@ -44,15 +46,8 @@
 
         $event.dataTransfer.setData(@js($dragType), JSON.stringify({ orchestration: {{ $orchestrationId }}, items }))
 
-        // Plusieurs cartes : le fantôme du glisser dit combien.
-        if (items.length > 1) {
-            const ghost = document.createElement('div')
-            ghost.textContent = items.length + ' fichiers'
-            ghost.style.cssText = 'position:fixed;top:-100px;padding:6px 12px;border-radius:9999px;background:#1f2937;color:#fff;font:600 13px sans-serif'
-            document.body.append(ghost)
-            $event.dataTransfer.setDragImage(ghost, 12, 12)
-            setTimeout(() => ghost.remove())
-        }
+        // Une petite étiquette plutôt que la carte : on voit le pointeur et où l'on vise (voir library-drag.js).
+        window.libraryDragGhost?.($event.dataTransfer, items)
     "
     @unless ($fit)
         x-data="{ full: false }"

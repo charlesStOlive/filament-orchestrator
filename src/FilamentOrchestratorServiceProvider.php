@@ -76,10 +76,12 @@ class FilamentOrchestratorServiceProvider extends PackageServiceProvider
         Livewire::component('filament-orchestrator-media-library', MediaLibraryTable::class);
         Livewire::component('filament-orchestrator-tag-images', TagImagesPanel::class);
 
-        // L'extension TipTap de la référence d'image : Filament ne la télécharge que si un éditeur s'en sert.
-        // Elle est publiée avec les autres assets de Filament (`php artisan filament:assets`).
+        // L'extension TipTap de la référence d'image : Filament ne la télécharge que si un éditeur s'en sert. Le fantôme
+        // du glisser, lui, sert à toute page qui montre la bibliothèque ou un panneau d'images.
+        // Ils sont publiés avec les autres assets de Filament (`php artisan filament:assets`).
         FilamentAsset::register([
             Js::make(LibraryImagePlugin::ASSET, __DIR__.'/../resources/js/rich-editor/library-image.js')->loadedOnRequest(),
+            Js::make(LibraryImagePlugin::DRAG_ASSET, __DIR__.'/../resources/js/library-drag.js'),
             Css::make(LibraryImagePlugin::ASSET, __DIR__.'/../resources/css/library-image.css'),
             Js::make(PasteCleanupPlugin::ASSET, __DIR__.'/../resources/js/rich-editor/paste-cleanup.js')->loadedOnRequest(),
         ], LibraryImagePlugin::ASSET_PACKAGE);
