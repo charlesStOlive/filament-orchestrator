@@ -93,6 +93,8 @@ class MediaUploadAction extends Action
                             FileUpload::make('files')
                                 ->label('Fichiers')
                                 ->multiple()
+                                // Des vignettes carrées, 2 ou 3 par ligne, plutôt qu'une pleine largeur par fichier.
+                                ->panelLayout('grid')
                                 ->storeFiles(false)
                                 ->acceptedFileTypes([...LibraryMedia::IMAGE_TYPES, ...LibraryMedia::VIDEO_TYPES])
                                 ->maxFiles(50)
