@@ -313,7 +313,6 @@ class MediaLibraryTable extends TableComponent
                     ->source('library')
                     ->label('Charger des images')
                     ->size(Size::Small),
-                ...$this->shortcutActions(),
                 $this->selectionActions(),
                 $this->sizeActions(),
                 $this->fitAction(),
@@ -775,10 +774,10 @@ class MediaLibraryTable extends TableComponent
     private function selectionActions(): ActionGroup
     {
         return ActionGroup::make([
-            ...$this->removeFromFocusActions(),
+            ...$this->focusActions(),
             $this->tagAction(),
             $this->untagAction(),
-            ...$this->libraryActionButtons(shortcut: false),
+            ...$this->libraryActionButtons(),
             $this->deleteAction(),
         ])
             ->label('Sélection')
@@ -830,30 +829,11 @@ class MediaLibraryTable extends TableComponent
     }
 
     /**
-     * Les gestes qu'on fait sans cesse, en boutons toujours visibles de la barre d'outils : ajouter les images cochées à
-     * ce au service de quoi la bibliothèque est ouverte, puis les actions de l'application qui se déclarent
-     * `shortcut()`. Comme celles de la sélection, elles préviennent si rien n'est coché.
-     *
-     * @return array<int, Action>
-     */
-    private function shortcutActions(): array
-    {
-        return [
-            ...$this->addToFocusActions(),
-            ...array_map(
-                fn (Action $action): Action => $action->button()->outlined()->color('gray')->size(Size::Small),
-                $this->libraryActionButtons(shortcut: true),
-            ),
-        ];
-    }
-
-    /**
      * Les actions de l'application, comme celles de la sélection : elles portent sur les images cochées.
      *
-     * @param  bool  $shortcut  Celles qui sont des boutons de la barre d'outils, ou celles du menu de la sélection.
      * @return array<int, Action>
      */
-    private function libraryActionButtons(bool $shortcut): array
+    private function libraryActionButtons(): array
     {
         return array_map(
             fn (LibraryAction $libraryAction): Action => $this
@@ -866,9 +846,7 @@ class MediaLibraryTable extends TableComponent
                         default => $libraryAction->refuses($selectedRecords->values()),
                     },
                 )
-                // Un raccourci de la barre d'outils manque de place : libellé court, le complet en infobulle.
-                ->label($shortcut ? $libraryAction->getShortLabel() : $libraryAction->getLabel())
-                ->tooltip($shortcut ? $libraryAction->getLabel() : null)
+                ->label($libraryAction->getLabel())
                 ->icon($libraryAction->getIcon())
                 // Un formulaire de réglages, quand l'action en déclare un (voir LibraryAction::schema()).
                 ->schema(fn (Collection $selectedRecords): ?array => $libraryAction->schema($selectedRecords->values(), $this->libraryContext))
@@ -881,10 +859,7 @@ class MediaLibraryTable extends TableComponent
                     Notification::make()->success()->title($title ?? $libraryAction->getLabel())->send();
                     $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
                 }),
-            array_values(array_filter(
-                $this->libraryActions(),
-                fn (LibraryAction $action): bool => $action->isShortcut() === $shortcut,
-            )),
+            $this->libraryActions(),
         );
     }
 
@@ -904,27 +879,21 @@ class MediaLibraryTable extends TableComponent
     }
 
     /**
-     * Le bouton toujours visible qui ajoute les images cochées à ce au service de quoi la bibliothèque est ouverte
-     * (une période). Elles s'y rangent à la suite des autres, comme au glisser-déposer. Rien sans « service ».
+     * Ajouter les images cochées à ce au service de quoi la bibliothèque est ouverte (une période), ou les en retirer.
+     * Ajoutées, elles s'y rangent à la suite des autres, comme au glisser-déposer. Rien sans « service ».
      *
      * @return array<int, Action>
      */
-    private function addToFocusActions(): array
+    private function focusActions(): array
     {
         if ($this->focusTags === []) {
             return [];
         }
 
         return [
-            // « Ajouter » tout court : le bandeau du haut dit déjà à quoi, et la place manque dans un volet étroit.
             $this->selectionAction('addToFocus')
-                ->label('Ajouter')
-                ->icon('heroicon-m-plus-circle')
-                ->tooltip('Ajouter les images cochées à : '.$this->focusLabel.' (elles se rangent à la suite des autres)')
-                ->button()
-                ->color('primary')
-                ->size(Size::Small)
-                ->extraAttributes(['data-library-shortcut' => 'add-to-focus'], merge: true)
+                ->label('Ajouter à : '.$this->focusLabel)
+                ->icon('heroicon-o-plus-circle')
                 ->action(function (Collection $selectedRecords): void {
                     $images = new LibraryImages;
                     $added = $selectedRecords->filter(
@@ -936,22 +905,6 @@ class MediaLibraryTable extends TableComponent
                         ->send();
                     $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
                 }),
-        ];
-    }
-
-    /**
-     * Retirer des images de ce au service de quoi la bibliothèque est ouverte : dans le menu de la sélection, un geste
-     * moins fréquent.
-     *
-     * @return array<int, Action>
-     */
-    private function removeFromFocusActions(): array
-    {
-        if ($this->focusTags === []) {
-            return [];
-        }
-
-        return [
             $this->selectionAction('removeFromFocus')
                 ->label('Retirer de : '.$this->focusLabel)
                 ->icon('heroicon-o-minus-circle')

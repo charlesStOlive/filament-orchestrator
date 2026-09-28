@@ -56,10 +56,6 @@ abstract class LibraryAction
 
     protected bool $single = false;
 
-    protected bool $shortcut = false;
-
-    protected ?string $shortLabel = null;
-
     protected string $refusal = 'Cette action ne s’applique pas à cette sélection';
 
     protected Width|string $modalWidth = Width::TwoExtraLarge;
@@ -99,38 +95,6 @@ abstract class LibraryAction
         $this->icon = $icon;
 
         return $this;
-    }
-
-    /**
-     * L'action est un bouton toujours visible de la barre d'outils, à côté de ceux qui ne dépendent pas de la sélection,
-     * plutôt qu'une entrée du menu « Sélection » : pour les gestes qu'on fait sans cesse.
-     */
-    public function shortcut(bool $shortcut = true): static
-    {
-        $this->shortcut = $shortcut;
-
-        return $this;
-    }
-
-    public function isShortcut(): bool
-    {
-        return $this->shortcut;
-    }
-
-    /**
-     * Le libellé du bouton quand l'action est un raccourci de la barre d'outils, où la place manque : le libellé complet
-     * devient son infobulle.
-     */
-    public function shortLabel(string $label): static
-    {
-        $this->shortLabel = $label;
-
-        return $this;
-    }
-
-    public function getShortLabel(): string
-    {
-        return $this->shortLabel ?? $this->label;
     }
 
     /** Ce que dit la bibliothèque quand une image cochée n'est pas de celles que l'action accepte (voir `accepts()`). */
