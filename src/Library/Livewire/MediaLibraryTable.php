@@ -35,6 +35,7 @@ use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\ViewColumn;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -299,9 +300,12 @@ class MediaLibraryTable extends TableComponent
             ->paginated([24, 48, 96])
             ->defaultPaginationPageOption(48)
             // Tout tient sur une ligne : les filtres et le groupement sont des
-            // menus déroulants de la barre d'outils, à côté de l'envoi et de
-            // la sélection. La grille n'ajoute que sa ligne de tri.
+            // boutons de la barre d'outils, à côté de l'envoi et de la
+            // sélection. La grille n'ajoute que sa ligne de tri. Les filtres
+            // s'ouvrent en modale, pas en menu déroulant : dans un volet
+            // étroit (qui défile), le menu débordait et s'y trouvait coupé.
             ->filters($this->filters())
+            ->filtersLayout(FiltersLayout::Modal)
             ->filtersFormColumns(2)
             ->filtersFormWidth(Width::TwoExtraLarge)
             ->groupingSettingsInDropdownOnDesktop()
@@ -371,6 +375,8 @@ class MediaLibraryTable extends TableComponent
                     DatePicker::make('from')->label('Du'),
                     DatePicker::make('until')->label('Au'),
                 ])
+                ->columns(2)
+                ->columnSpanFull()
                 ->query(fn (Builder $query, array $data): Builder => $query
                     ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('taken_at', '>=', $date))
                     ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('taken_at', '<=', $date)))
@@ -435,6 +441,8 @@ class MediaLibraryTable extends TableComponent
                         ->default(5)
                         ->selectablePlaceholder(false),
                 ])
+                ->columns(3)
+                ->columnSpanFull()
                 ->query(fn (Builder $query, array $data): Builder => is_numeric($data['latitude'] ?? null) && is_numeric($data['longitude'] ?? null)
                     ? $query->near((float) $data['latitude'], (float) $data['longitude'], (float) ($data['radius'] ?? 5))
                     : $query)
