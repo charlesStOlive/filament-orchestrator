@@ -38,7 +38,7 @@
     <dd class="text-gray-950 dark:text-white">{{ $media->dateSourceLabel() }}</dd>
 
     <dt class="text-gray-500 dark:text-gray-400">Chargé le</dt>
-    <dd class="text-gray-950 dark:text-white">{{ $media->created_at?->locale('fr')->translatedFormat('j F Y à H:i') }}</dd>
+    <dd class="text-gray-950 dark:text-white">{{ $media->created_at?->timezone(\Filament\Support\Facades\FilamentTimezone::get())->locale('fr')->translatedFormat('j F Y à H:i') }}</dd>
 </dl>
 
 @if ($media->isYoutube())
