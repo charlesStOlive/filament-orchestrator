@@ -59,9 +59,16 @@ return [
 
         /*
          * Classes extending Library\LibraryAction. Each one adds an action to the
-         * selection menu of the library, and can mark images with an icon.
+         * selection menu of the library (or, with shortcut(), an always visible
+         * toolbar button), and can mark images with an icon.
          */
         'actions' => [],
+
+        /*
+         * "Add to: <period>" (library opened for a period) is an entry of the
+         * selection menu. True makes it an always visible "Add" toolbar button.
+         */
+        'add_to_focus_shortcut' => false,
     ],
 
     /*

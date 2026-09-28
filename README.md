@@ -304,6 +304,35 @@ class CaptionAction extends LibraryAction
 }
 ```
 
+#### Boutons directs (raccourcis), désactivés par défaut
+
+Par défaut, **tout ce qui porte sur les images cochées est dans le menu
+« Sélection »** : la barre d'outils ne montre que l'envoi, ce menu et les tailles.
+Pour un geste qu'on fait sans cesse, on peut en faire un **bouton toujours
+visible** de la barre d'outils (il prévient, comme le menu, si rien n'est coché) :
+
+- une action de l'application : `->shortcut()` dans son `setUp()`, avec
+  `->shortLabel('Image de une')` si le libellé complet est trop long (il
+  devient l'infobulle du bouton) ;
+- « Ajouter à : période » (bibliothèque ouverte au service d'une période) :
+  `'add_to_focus_shortcut' => true` sous la clé `library` de la config — il
+  devient un bouton « Ajouter », la période en infobulle. « Retirer de : … »
+  reste dans le menu.
+
+```php
+protected function setUp(): void
+{
+    $this->name('header')
+        ->label('Définir comme image de une')
+        ->shortLabel('Image de une')
+        ->single()
+        ->shortcut();
+}
+```
+
+Chaque bouton prend de la place, surtout dans un volet étroit : à réserver aux
+un ou deux gestes vraiment courants.
+
 Les tags d'une bibliothèque sont rangés sous un type propre à l'orchestration :
 deux voyages ne partagent jamais un tag. La configuration se trouve sous la clé
 `library` ; comme la fusion de config est superficielle, une application qui la

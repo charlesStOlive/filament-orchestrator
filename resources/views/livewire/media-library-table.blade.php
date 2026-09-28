@@ -13,7 +13,7 @@
       modale ou dans le volet d'un tiers d'une page.
 --}}
 {{--
-    Le bloc du haut — au service de quoi la bibliothèque est ouverte, filtres, envoi, sélection, tailles — reste
+    Le bloc du haut — au service de quoi la bibliothèque est ouverte, filtres, envoi, raccourcis éventuels, sélection, tailles — reste
     visible quand la grille défile (`sticky`, dans le volet ou la modale qui défile). Le conteneur de la table a
     `overflow: hidden` pour arrondir ses coins : il ferait de lui le défilement et empêcherait `sticky` ; `clip`
     arrondit de même, sans en être un.
