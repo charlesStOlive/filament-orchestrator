@@ -1,21 +1,41 @@
 <div class="space-y-3">
+    {{--
+        Comme l'aide d'un champ Filament : un « ? » (lien Filament, couleur info) juste après le titre, son libellé en
+        infobulle — ou, avec `helpFullTitle`, le libellé en toutes lettres au bout de la ligne.
+    --}}
     <div class="flex items-center justify-between gap-2">
-        <div class="whitespace-nowrap text-sm font-medium text-gray-950 dark:text-white">
-            {{ $heading }}
-            @unless ($single)
-                <span class="font-normal text-gray-500 dark:text-gray-400">({{ $this->images->count() }})</span>
-            @endunless
+        <div class="flex items-center gap-2 whitespace-nowrap text-sm font-medium text-gray-950 dark:text-white">
+            <span>
+                {{ $heading }}
+                @unless ($single)
+                    <span class="font-normal text-gray-500 dark:text-gray-400">({{ $this->images->count() }})</span>
+                @endunless
+            </span>
+
+            @if ($help && ! $helpFullTitle)
+                <x-filament::link
+                    :href="'#modal-' . $help"
+                    color="info"
+                    icon="heroicon-o-question-mark-circle"
+                    :size="\Filament\Support\Enums\Size::Small"
+                    :tooltip="$helpLabel ?? 'Aide'"
+                    label-sr-only
+                >
+                    {{ $helpLabel ?? 'Aide' }}
+                </x-filament::link>
+            @endif
         </div>
 
-        {{-- Comme l'aide d'un champ Filament (hintAction) : un lien coloré, et le point d'interrogation. --}}
-        @if ($help)
-            <a
-                href="#modal-{{ $help }}"
-                class="inline-flex items-center gap-1 whitespace-nowrap text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+        @if ($help && $helpFullTitle)
+            <x-filament::link
+                :href="'#modal-' . $help"
+                color="info"
+                icon="heroicon-o-question-mark-circle"
+                :size="\Filament\Support\Enums\Size::Small"
+                class="whitespace-nowrap"
             >
-                <x-filament::icon icon="heroicon-o-question-mark-circle" class="h-4 w-4" />
                 {{ $helpLabel ?? 'Aide' }}
-            </a>
+            </x-filament::link>
         @endif
     </div>
 

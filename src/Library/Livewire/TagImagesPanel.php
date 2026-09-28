@@ -104,9 +104,13 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     #[Locked]
     public ?string $help = null;
 
-    /** Le libellé du lien d'aide (« Aide » par défaut). */
+    /** Le libellé du lien d'aide (« Aide » par défaut) : l'infobulle du « ? », ou son texte avec `$helpFullTitle`. */
     #[Locked]
     public ?string $helpLabel = null;
+
+    /** Le libellé en toutes lettres au bout de la ligne, plutôt que le « ? » seul juste après le titre. */
+    #[Locked]
+    public bool $helpFullTitle = false;
 
     /**
      * @param  array<int, string>  $tags
@@ -124,6 +128,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         array $libraryTags = [],
         ?string $help = null,
         ?string $helpLabel = null,
+        bool $helpFullTitle = false,
         bool $libraryFocused = true,
         array $libraryFilterTags = [],
     ): void {
@@ -136,6 +141,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         $this->libraryTags = array_values(array_filter($libraryTags, 'is_string'));
         $this->help = $help;
         $this->helpLabel = $helpLabel;
+        $this->helpFullTitle = $helpFullTitle;
         $this->libraryFocused = $libraryFocused;
         $this->libraryFilterTags = array_values(array_filter($libraryFilterTags, 'is_string'));
 

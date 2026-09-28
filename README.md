@@ -250,9 +250,11 @@ décalerait. Pour recalculer les dates depuis les fichiers (import, ancien déca
 ### Aide contextuelle
 
 `TagImagesPanel` accepte un paramètre `help` : l'identifiant d'une page de la base de
-connaissances (`voyage.images`). Son titre porte alors un « ? », un simple lien
-`#modal-<identifiant>` que la base de connaissances ouvre en fenêtre ; sans elle, le
-lien ne mène nulle part. Le paquet n'en dépend pas.
+connaissances (`voyage.images`). Son titre est alors suivi d'un « ? » (couleur `info`,
+`helpLabel` en infobulle), un simple lien `#modal-<identifiant>` que la base de
+connaissances ouvre en fenêtre ; sans elle, le lien ne mène nulle part. Le paquet n'en
+dépend pas. `helpFullTitle: true` affiche plutôt `helpLabel` en toutes lettres, au bout
+de la ligne.
 
 ### Actions ajoutées à la bibliothèque
 
