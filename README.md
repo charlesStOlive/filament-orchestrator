@@ -149,7 +149,8 @@ trier, filtrer et grouper.
   un contexte. Même option sur `MediaLibraryTable::component(…, filterTags: […])`,
   et sur `TagImagesPanel` (`libraryFilterTags`, avec `libraryFocused: false` pour
   un ensemble d'une image qu'une action de la bibliothèque désigne elle-même :
-  le « + » ouvre alors une bibliothèque filtrée, au service d'aucun tag).
+  le « + » ouvre alors une bibliothèque filtrée, au service d'aucun tag). Le
+  volet latéral reçoit aussi le filtre, par `filterTags` dans son contexte.
 - **Lire** : `Library\LibraryImages` retrouve les images d'un voyage par tag,
   en une seule requête ; c'est ce que consomme `OrchestrationPayloadBuilder`.
 - **Tailles d'affichage** : chaque image reçoit, en plus de la vignette carrée

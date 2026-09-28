@@ -85,6 +85,15 @@ class MediaLibraryTable extends TableComponent
     public bool $followsSidePane = false;
 
     /**
+     * Le filtre « Tags » qu'un contexte du volet a posé (voir followSidePaneContext()), pour le retirer quand le contexte
+     * suivant n'en demande plus — sans toucher à un filtre choisi à la main.
+     *
+     * @var array<int, string>
+     */
+    #[Locked]
+    public array $contextFilterTags = [];
+
+    /**
      * La taille des vignettes : S, M ou L. Gardée dans la session de
      * l'utilisateur, elle survit à la fermeture de la bibliothèque.
      */
@@ -158,6 +167,7 @@ class MediaLibraryTable extends TableComponent
 
         if ($filterTags !== []) {
             $this->tableFilters = ['tags' => ['values' => $filterTags]];
+            $this->contextFilterTags = $followsSidePane ? $filterTags : [];
         }
 
         // Échoue tôt (404) plutôt qu'à l'affichage de la table.
@@ -182,6 +192,23 @@ class MediaLibraryTable extends TableComponent
 
         // Ce que l'on a calculé des anciens tags est périmé.
         unset($this->libraryContext, $this->focusLabel);
+
+        // Un contexte qui demande un filtre (les croquis, pour en choisir un) le pose. Le contexte suivant, s'il n'en
+        // demande pas, le retire — s'il est toujours tel qu'on l'a posé : un filtre choisi à la main reste.
+        $filterTags = array_values(array_filter((array) ($context['filterTags'] ?? []), 'is_string'));
+        $current = $this->tableFilters['tags']['values'] ?? [];
+
+        if ($filterTags !== []) {
+            $this->tableFilters = [...($this->tableFilters ?? []), 'tags' => ['values' => $filterTags]];
+            $this->contextFilterTags = $filterTags;
+            $this->updatedTableFilters();
+        } elseif ($this->contextFilterTags !== [] && $current === $this->contextFilterTags) {
+            $this->tableFilters = [...($this->tableFilters ?? []), 'tags' => ['values' => []]];
+            $this->contextFilterTags = [];
+            $this->updatedTableFilters();
+        } else {
+            $this->contextFilterTags = [];
+        }
     }
 
     public function boot(): void

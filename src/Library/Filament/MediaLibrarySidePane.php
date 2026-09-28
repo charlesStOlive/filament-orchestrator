@@ -17,6 +17,8 @@ use CharlesStOlive\FilamentUi\Split\SidePane;
  * filtre ou un envoi se comportent à l'identique. Son contexte est
  * `['tags' => [...]]` : les tags du contenu sur lequel la page travaille (une
  * journée), que la bibliothèque affiche, propose en filtre et applique aux envois.
+ * `filterTags`, facultatif, pose en plus le filtre « Tags » (voir MediaLibraryAction::filterTags()) : les
+ * croquis, par exemple, quand on ouvre le volet pour en choisir un.
  */
 class MediaLibrarySidePane extends SidePane
 {
@@ -30,7 +32,7 @@ class MediaLibrarySidePane extends SidePane
             // Le contexte de la page dit sur quoi elle travaille (les tags de la journée
             // ouverte) : la bibliothèque s'ouvre déjà réglée dessus, et la suit ensuite.
             ->schema(fn (array $context): array => [
-                MediaLibraryTable::component($orchestration, (array) ($context['tags'] ?? []), followsSidePane: true),
+                MediaLibraryTable::component($orchestration, (array) ($context['tags'] ?? []), followsSidePane: true, filterTags: (array) ($context['filterTags'] ?? [])),
             ]);
     }
 }

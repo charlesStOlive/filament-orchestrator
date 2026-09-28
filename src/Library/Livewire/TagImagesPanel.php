@@ -90,7 +90,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
 
     /**
      * Les tags sur lesquels la bibliothèque s'ouvre déjà filtrée (voir MediaLibraryAction::filterTags()) : les croquis,
-     * par exemple. Seulement dans une modale : le volet latéral garde ses propres filtres.
+     * par exemple — dans une modale comme dans le volet latéral (qui reçoit le filtre dans son contexte).
      *
      * @var array<int, string>
      */
@@ -293,7 +293,10 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
                 ->action(fn () => $this->dispatch(
                     SidePaneEvent::OPEN,
                     pane: MediaLibrarySidePane::NAME,
-                    context: ['tags' => $this->libraryTags ?: $this->tags],
+                    context: array_filter([
+                        'tags' => $this->libraryTags ?: $this->tags,
+                        'filterTags' => $this->libraryFilterTags,
+                    ]),
                 ))
                 ->size(Size::Small)
                 ->outlined();
