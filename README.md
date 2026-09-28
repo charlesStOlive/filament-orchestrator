@@ -151,6 +151,10 @@ trier, filtrer et grouper.
   un ensemble d'une image qu'une action de la bibliothèque désigne elle-même :
   le « + » ouvre alors une bibliothèque filtrée, au service d'aucun tag). Le
   volet latéral reçoit aussi le filtre, par `filterTags` dans son contexte.
+  De même, `filterDates` (`['from' => 'Y-m-d', 'until' => 'Y-m-d']`, dans le
+  contexte du volet ou sur `MediaLibraryTable::component()`) pose le filtre
+  « Date de prise de vue ». Un filtre posé par le contexte s'en va quand le
+  contexte suivant ne le demande plus — sauf s'il a été retouché à la main.
 - **Lire** : `Library\LibraryImages` retrouve les images d'un voyage par tag,
   en une seule requête ; c'est ce que consomme `OrchestrationPayloadBuilder`.
 - **Tailles d'affichage** : chaque image reçoit, en plus de la vignette carrée

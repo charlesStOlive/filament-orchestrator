@@ -86,13 +86,13 @@ class MediaLibraryTable extends TableComponent
     public bool $followsSidePane = false;
 
     /**
-     * Le filtre « Tags » qu'un contexte du volet a posé (voir followSidePaneContext()), pour le retirer quand le contexte
-     * suivant n'en demande plus — sans toucher à un filtre choisi à la main.
+     * Les filtres qu'un contexte du volet a posés (voir followSidePaneContext()) — nom du filtre => l'état posé —, pour
+     * les retirer quand le contexte suivant n'en demande plus, sans toucher à un filtre choisi ou retouché à la main.
      *
-     * @var array<int, string>
+     * @var array<string, array<string, mixed>>
      */
     #[Locked]
-    public array $contextFilterTags = [];
+    public array $contextFilters = [];
 
     /**
      * La taille des vignettes : S, M ou L. Gardée dans la session de
@@ -136,17 +136,20 @@ class MediaLibraryTable extends TableComponent
      *
      * `$filterTags` ouvre la bibliothèque déjà filtrée sur ces tags (le filtre « Tags », que l'on peut ensuite retirer) :
      * c'est ce qui en fait le sélecteur d'une sorte d'images — des croquis, par exemple —, sans qu'elle sache laquelle.
+     * `$filterDates` (`['from' => 'Y-m-d', 'until' => 'Y-m-d']`) la filtre de même sur la date de prise de vue.
      *
      * @param  array<int, string>  $focusTags
      * @param  array<int, string>  $filterTags
+     * @param  array{from?: ?string, until?: ?string}  $filterDates
      */
-    public static function component(Orchestration $orchestration, array $focusTags = [], bool $followsSidePane = false, array $filterTags = []): Livewire
+    public static function component(Orchestration $orchestration, array $focusTags = [], bool $followsSidePane = false, array $filterTags = [], array $filterDates = []): Livewire
     {
         return Livewire::make(static::class, [
             'orchestrationId' => $orchestration->getKey(),
             'focusTags' => $focusTags,
             'followsSidePane' => $followsSidePane,
             'filterTags' => $filterTags,
+            'filterDates' => $filterDates,
         ])->key($followsSidePane
             ? 'media-library-pane-'.$orchestration->getKey()
             : 'media-library-'.$orchestration->getKey().'-'.md5(implode('|', $focusTags).'#'.implode('|', $filterTags)));
@@ -155,20 +158,21 @@ class MediaLibraryTable extends TableComponent
     /**
      * @param  array<int, string>  $focusTags
      * @param  array<int, string>  $filterTags
+     * @param  array{from?: ?string, until?: ?string}  $filterDates
      */
-    public function mount(int $orchestrationId, array $focusTags = [], bool $followsSidePane = false, array $filterTags = []): void
+    public function mount(int $orchestrationId, array $focusTags = [], bool $followsSidePane = false, array $filterTags = [], array $filterDates = []): void
     {
         $this->orchestrationId = $orchestrationId;
         $this->focusTags = array_values(array_filter($focusTags, 'is_string'));
         $this->followsSidePane = $followsSidePane;
 
-        // Posé avant que la table ne démarre : Filament remplit le formulaire des filtres avec cet état (voir
+        // Posés avant que la table ne démarre : Filament remplit le formulaire des filtres avec cet état (voir
         // InteractsWithTable::bootedInteractsWithTable), comme si on l'avait choisi à la main.
-        $filterTags = array_values(array_filter($filterTags, 'is_string'));
+        $posed = $this->requestedFilters(['filterTags' => $filterTags, 'filterDates' => $filterDates]);
 
-        if ($filterTags !== []) {
-            $this->tableFilters = ['tags' => ['values' => $filterTags]];
-            $this->contextFilterTags = $followsSidePane ? $filterTags : [];
+        if ($posed !== []) {
+            $this->tableFilters = $posed;
+            $this->contextFilters = $followsSidePane ? $posed : [];
         }
 
         // Échoue tôt (404) plutôt qu'à l'affichage de la table.
@@ -202,22 +206,62 @@ class MediaLibraryTable extends TableComponent
             $this->tableDeferredFilters['in_focus'] ??= ['isActive' => false];
         }
 
-        // Un contexte qui demande un filtre (les croquis, pour en choisir un) le pose. Le contexte suivant, s'il n'en
-        // demande pas, le retire — s'il est toujours tel qu'on l'a posé : un filtre choisi à la main reste.
-        $filterTags = array_values(array_filter((array) ($context['filterTags'] ?? []), 'is_string'));
-        $current = $this->tableFilters['tags']['values'] ?? [];
+        // Un contexte qui demande un filtre (les croquis, pour en choisir un ; les dates d'une période en création) le
+        // pose. Le contexte suivant, s'il n'en demande plus, le retire — s'il est toujours tel qu'on l'a posé : un filtre
+        // choisi ou retouché à la main reste.
+        $requested = $this->requestedFilters($context);
+        $filters = $this->tableFilters ?? [];
 
-        if ($filterTags !== []) {
-            $this->tableFilters = [...($this->tableFilters ?? []), 'tags' => ['values' => $filterTags]];
-            $this->contextFilterTags = $filterTags;
-            $this->updatedTableFilters();
-        } elseif ($this->contextFilterTags !== [] && $current === $this->contextFilterTags) {
-            $this->tableFilters = [...($this->tableFilters ?? []), 'tags' => ['values' => []]];
-            $this->contextFilterTags = [];
-            $this->updatedTableFilters();
-        } else {
-            $this->contextFilterTags = [];
+        foreach ($this->contextFilters as $name => $state) {
+            if (! array_key_exists($name, $requested) && ($filters[$name] ?? null) == $state) {
+                $filters[$name] = self::CONTEXT_FILTERS_OFF[$name];
+            }
         }
+
+        $filters = [...$filters, ...$requested];
+        $this->contextFilters = $requested;
+
+        if ($filters != ($this->tableFilters ?? [])) {
+            $this->tableFilters = $filters;
+            $this->updatedTableFilters();
+        }
+    }
+
+    /**
+     * Les filtres qu'un contexte peut poser (voir requestedFilters()), et l'état qui les laisse sans effet.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    private const CONTEXT_FILTERS_OFF = [
+        'tags' => ['values' => []],
+        'taken_at' => ['from' => null, 'until' => null],
+    ];
+
+    /**
+     * L'état des filtres que demandent `filterTags` (des tags) et `filterDates` (`from` / `until`, au format Y-m-d) —
+     * rien pour ce qui est vide.
+     *
+     * @param  array<string, mixed>  $context
+     * @return array<string, array<string, mixed>>
+     */
+    private function requestedFilters(array $context): array
+    {
+        $filters = [];
+        $tags = array_values(array_filter((array) ($context['filterTags'] ?? []), 'is_string'));
+
+        if ($tags !== []) {
+            $filters['tags'] = ['values' => $tags];
+        }
+
+        $dates = (array) ($context['filterDates'] ?? []);
+        $from = is_string($dates['from'] ?? null) ? $dates['from'] : null;
+        $until = is_string($dates['until'] ?? null) ? $dates['until'] : null;
+
+        if ($from !== null || $until !== null) {
+            $filters['taken_at'] = ['from' => $from, 'until' => $until];
+        }
+
+        return $filters;
     }
 
     public function boot(): void
