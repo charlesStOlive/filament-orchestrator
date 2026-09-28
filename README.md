@@ -143,6 +143,10 @@ trier, filtrer et grouper.
   bibliothèque complète — ouverte « au service » de ces tags avec
   `MediaLibraryAction::make()->focusTags([...])` — pour en rattacher d'autres
   par lot ou n'afficher que celles de la journée.
+- **Choisir une sorte d'images** : `MediaLibraryAction::make()->filterTags(['croquis'])`
+  ouvre la bibliothèque déjà filtrée sur ces tags (le filtre « Tags », qu'on
+  retire comme un autre). Rien n'est étiqueté : c'est un point de départ, pas
+  un contexte. Même option sur `MediaLibraryTable::component(…, filterTags: […])`.
 - **Lire** : `Library\LibraryImages` retrouve les images d'un voyage par tag,
   en une seule requête ; c'est ce que consomme `OrchestrationPayloadBuilder`.
 - **Tailles d'affichage** : chaque image reçoit, en plus de la vignette carrée

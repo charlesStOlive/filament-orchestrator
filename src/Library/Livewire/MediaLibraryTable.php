@@ -124,25 +124,41 @@ class MediaLibraryTable extends TableComponent
      * remonte la bibliothèque à neuf. Dans le volet, la clé est fixe — la
      * bibliothèque suit les changements de journée par événement.
      *
+     * `$filterTags` ouvre la bibliothèque déjà filtrée sur ces tags (le filtre « Tags », que l'on peut ensuite retirer) :
+     * c'est ce qui en fait le sélecteur d'une sorte d'images — des croquis, par exemple —, sans qu'elle sache laquelle.
+     *
      * @param  array<int, string>  $focusTags
+     * @param  array<int, string>  $filterTags
      */
-    public static function component(Orchestration $orchestration, array $focusTags = [], bool $followsSidePane = false): Livewire
+    public static function component(Orchestration $orchestration, array $focusTags = [], bool $followsSidePane = false, array $filterTags = []): Livewire
     {
         return Livewire::make(static::class, [
             'orchestrationId' => $orchestration->getKey(),
             'focusTags' => $focusTags,
             'followsSidePane' => $followsSidePane,
+            'filterTags' => $filterTags,
         ])->key($followsSidePane
             ? 'media-library-pane-'.$orchestration->getKey()
-            : 'media-library-'.$orchestration->getKey().'-'.md5(implode('|', $focusTags)));
+            : 'media-library-'.$orchestration->getKey().'-'.md5(implode('|', $focusTags).'#'.implode('|', $filterTags)));
     }
 
-    /** @param array<int, string> $focusTags */
-    public function mount(int $orchestrationId, array $focusTags = [], bool $followsSidePane = false): void
+    /**
+     * @param  array<int, string>  $focusTags
+     * @param  array<int, string>  $filterTags
+     */
+    public function mount(int $orchestrationId, array $focusTags = [], bool $followsSidePane = false, array $filterTags = []): void
     {
         $this->orchestrationId = $orchestrationId;
         $this->focusTags = array_values(array_filter($focusTags, 'is_string'));
         $this->followsSidePane = $followsSidePane;
+
+        // Posé avant que la table ne démarre : Filament remplit le formulaire des filtres avec cet état (voir
+        // InteractsWithTable::bootedInteractsWithTable), comme si on l'avait choisi à la main.
+        $filterTags = array_values(array_filter($filterTags, 'is_string'));
+
+        if ($filterTags !== []) {
+            $this->tableFilters = ['tags' => ['values' => $filterTags]];
+        }
 
         // Échoue tôt (404) plutôt qu'à l'affichage de la table.
         $this->orchestration();

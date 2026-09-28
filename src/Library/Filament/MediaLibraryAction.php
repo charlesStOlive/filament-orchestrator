@@ -21,6 +21,9 @@ class MediaLibraryAction extends Action
     /** @var array<int, string>|Closure */
     protected array|Closure $focusTags = [];
 
+    /** @var array<int, string>|Closure */
+    protected array|Closure $filterTags = [];
+
     /**
      * Ouvre la bibliothèque « au service » de ces tags : les images qui les
      * portent se filtrent d'un clic, on peut y rattacher d'autres images par
@@ -40,6 +43,25 @@ class MediaLibraryAction extends Action
     public function getFocusTags(): array
     {
         return array_values((array) $this->evaluate($this->focusTags));
+    }
+
+    /**
+     * Ouvre la bibliothèque déjà filtrée sur ces tags (le filtre « Tags ») : les croquis, par exemple, quand on
+     * l'ouvre pour en choisir un. Le filtre se retire comme un autre ; rien n'est étiqueté.
+     *
+     * @param  array<int, string>|Closure  $tags
+     */
+    public function filterTags(array|Closure $tags): static
+    {
+        $this->filterTags = $tags;
+
+        return $this;
+    }
+
+    /** @return array<int, string> */
+    public function getFilterTags(): array
+    {
+        return array_values((array) $this->evaluate($this->filterTags));
     }
 
     public static function getDefaultName(): ?string
@@ -63,7 +85,7 @@ class MediaLibraryAction extends Action
                 // Sans cadre ni retrait (macros de filament-ui) : la table occupe toute la fenêtre au lieu d'y
                 // flotter dans un encadré.
                 Section::make()->borderNone()->paddingNone()->schema([
-                    MediaLibraryTable::component($record, $this->getFocusTags()),
+                    MediaLibraryTable::component($record, $this->getFocusTags(), filterTags: $this->getFilterTags()),
                 ]),
             ]);
     }
