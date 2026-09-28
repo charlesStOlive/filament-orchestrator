@@ -81,6 +81,23 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     public array $libraryTags = [];
 
     /**
+     * Faux : la bibliothèque s'ouvre sans être « au service » d'aucun tag — ni « Ajouter à », ni envoi étiqueté. C'est le
+     * cas d'un ensemble d'une image qu'une action de la bibliothèque désigne elle-même (le croquis d'un carnet, par
+     * exemple) : y rattacher des images par lot le romprait.
+     */
+    #[Locked]
+    public bool $libraryFocused = true;
+
+    /**
+     * Les tags sur lesquels la bibliothèque s'ouvre déjà filtrée (voir MediaLibraryAction::filterTags()) : les croquis,
+     * par exemple. Seulement dans une modale : le volet latéral garde ses propres filtres.
+     *
+     * @var array<int, string>
+     */
+    #[Locked]
+    public array $libraryFilterTags = [];
+
+    /**
      * L'identifiant d'une page d'aide de la base de connaissances (Guava), que le « ? » du titre ouvre dans une fenêtre :
      * un simple lien « #modal-… », que l'extension de la base intercepte dans le panneau. Sans elle, il ne mène nulle part.
      */
@@ -95,6 +112,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
      * @param  array<int, string>  $tags
      * @param  array<int, string>  $coverTags
      * @param  array<int, string>  $libraryTags
+     * @param  array<int, string>  $libraryFilterTags
      */
     public function mount(
         int $orchestrationId,
@@ -106,6 +124,8 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         array $libraryTags = [],
         ?string $help = null,
         ?string $helpLabel = null,
+        bool $libraryFocused = true,
+        array $libraryFilterTags = [],
     ): void {
         $this->orchestrationId = $orchestrationId;
         $this->tags = array_values(array_filter($tags, 'is_string'));
@@ -116,6 +136,8 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         $this->libraryTags = array_values(array_filter($libraryTags, 'is_string'));
         $this->help = $help;
         $this->helpLabel = $helpLabel;
+        $this->libraryFocused = $libraryFocused;
+        $this->libraryFilterTags = array_values(array_filter($libraryFilterTags, 'is_string'));
 
         // Échoue tôt (404) plutôt qu'à l'affichage.
         $this->orchestration();
@@ -279,7 +301,8 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
 
         return MediaLibraryAction::make('library')
             ->record($this->orchestration)
-            ->focusTags($this->libraryTags ?: $this->tags)
+            ->focusTags($this->libraryFocused ? ($this->libraryTags ?: $this->tags) : [])
+            ->filterTags($this->libraryFilterTags)
             ->label('Ouvrir la bibliothèque')
             ->size(Size::Small)
             ->outlined();
