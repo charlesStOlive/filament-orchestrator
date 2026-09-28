@@ -80,10 +80,10 @@ class MediaUploadAction extends Action
             ->label('Charger des images')
             ->icon('heroicon-o-arrow-up-tray')
             ->modalHeading('Charger des images et des vidéos')
-            ->modalWidth(Width::Large)
+            ->modalWidth(Width::FourExtraLarge)
             ->modalSubmitActionLabel('Charger dans la bibliothèque')
             ->schema(fn (): array => [
-                Tabs::make('source')->tabs([
+                Tabs::make('source')->vertical()->tabs([
                     // Les fichiers ne sont pas stockés par le champ : l'ingestor
                     // les range lui-même, une seule fois, dans la bibliothèque.
                     Tab::make('upload')
