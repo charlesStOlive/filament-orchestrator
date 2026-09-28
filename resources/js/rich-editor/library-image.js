@@ -14,6 +14,11 @@
  * - Pendant le glisser, un repère épais marque l'endroit où la référence s'écrira. Laissé un
  *   moment au milieu d'un mot (`WORD_DELAY`), le glisser englobe le mot : lâché là, le mot
  *   devient la référence (`label`), et le carnet l'écrira, cliquable, au lieu de « (image 3) ».
+ *   Une fois le mot englobé, continuer de glisser étend le passage mot par mot, vers la droite
+ *   ou vers la gauche, dans le même paragraphe (voir `extendWord`).
+ *   Lâché sur le texte sélectionné (quelques mots d'un même paragraphe), c'est ce texte qui
+ *   devient la référence, sans attendre (voir `selectedText`) : il se
+ *   souligne dès que le glisser entre dans l'éditeur.
  * - Une référence désigne des fichiers d'un même genre : « images 1, 2, 3 » ou « vidéo 1 ».
  *   Glisser des images et des vidéos ensemble écrit une référence par genre.
  * - Le nœud ne garde que les clés et le genre : ce sont elles qui font le lien, les numéros
@@ -31,7 +36,7 @@
  */
 
 const { Node, mergeAttributes } = window.FilamentRichEditor.tiptap.core
-const { Plugin, PluginKey } = window.FilamentRichEditor.tiptap.pmState
+const { Plugin, PluginKey, TextSelection } = window.FilamentRichEditor.tiptap.pmState
 const { Decoration, DecorationSet } = window.FilamentRichEditor.tiptap.pmView
 
 // Les mêmes noms que Library\LibraryImages::DRAG_TYPE et Library\LibraryImageEvent, côté PHP.
@@ -136,6 +141,98 @@ export function wordAt(doc, pos) {
     }
 
     return { from: $pos.start() + start, to: $pos.start() + end, text: text.slice(start, end) }
+}
+
+/**
+ * Le passage englobé quand, le mot de départ (`anchor`) déjà englobé, on continue de glisser : vers la droite il s'étend
+ * jusqu'au bout du mot sous le pointeur, vers la gauche jusqu'à son début, comme une sélection à la souris. Il reste dans
+ * le paragraphe du mot de départ et s'arrête avant une autre référence ; hors du paragraphe, null.
+ *
+ * @returns {{ from: number, to: number, text: string } | null}
+ */
+export function extendWord(doc, anchor, pos) {
+    const $anchor = doc.resolve(anchor.from)
+    const $pos = doc.resolve(pos)
+
+    if (!$anchor.sameParent($pos)) {
+        return null
+    }
+
+    const base = $anchor.start()
+    const text = $anchor.parent.textBetween(0, $anchor.parent.content.size, undefined, LEAF)
+    let start = anchor.from - base
+    let end = anchor.to - base
+    const offset = pos - base
+
+    if (offset > end) {
+        let to = offset
+
+        while (to < text.length && isWordChar(text[to - 1]) && isWordChar(text[to])) {
+            to++
+        }
+
+        const leaf = text.indexOf(LEAF, end)
+
+        end = leaf !== -1 && leaf < to ? leaf : to
+    } else if (offset < start) {
+        let from = offset
+
+        while (from > 0 && isWordChar(text[from - 1]) && isWordChar(text[from])) {
+            from--
+        }
+
+        const leaf = text.lastIndexOf(LEAF, start - 1)
+
+        start = leaf !== -1 && leaf >= from ? leaf + 1 : from
+    }
+
+    // Sans les espaces des bords : on s'arrête sur un mot, pas sur l'espace qui le suit.
+    while (end > start && /\s/.test(text[end - 1])) {
+        end--
+    }
+
+    while (start < end && /\s/.test(text[start])) {
+        start++
+    }
+
+    return start < end ? { from: base + start, to: base + end, text: text.slice(start, end) } : null
+}
+
+/**
+ * Le texte sélectionné dans l'éditeur, qui peut devenir une référence comme un mot englobé : dans un seul paragraphe,
+ * sans autre référence, sans les espaces de ses bords (un double-clic en prend parfois une). Null sinon.
+ *
+ * Quand on attrape une carte de la bibliothèque, l'éditeur perd le focus et le navigateur efface le surlignage, mais
+ * ProseMirror garde sa sélection dans son état (il ne relit celle du navigateur que tant qu'il a le focus) : c'est elle
+ * qu'on lit ici, et que le repère du glisser remontre (voir `decorations`).
+ *
+ * @returns {{ from: number, to: number, text: string } | null}
+ */
+export function selectedText(state) {
+    const { selection, doc } = state
+
+    if (selection.empty || !(selection instanceof TextSelection)) {
+        return null
+    }
+
+    const $from = doc.resolve(selection.from)
+
+    if (!$from.parent.inlineContent || !$from.sameParent(doc.resolve(selection.to))) {
+        return null
+    }
+
+    const raw = doc.textBetween(selection.from, selection.to, undefined, LEAF)
+    const text = raw.trim()
+    const from = selection.from + (raw.length - raw.trimStart().length)
+
+    return text === '' || text.includes(LEAF) ? null : { from, to: from + text.length, text }
+}
+
+/** Le texte sélectionné, si `pos` est dessus : il est alors la cible du dépôt. Null sinon. */
+export function selectionAt(state, pos) {
+    const selected = selectedText(state)
+
+    return selected && pos >= selected.from && pos <= selected.to ? selected : null
 }
 
 /** La vignette du fichier dans le panneau d'images de la page, ou null. */
@@ -276,14 +373,14 @@ function openPopover({ editor, getPos, anchor, current }) {
         ${
             label
                 ? `<label class="library-image-popover__field">
-                       <span>Mot du texte</span>
+                       <span>Texte lié</span>
                        <input type="text" data-field="label" autocomplete="off" />
                    </label>`
                 : ''
         }
         <div class="library-image-popover__actions">
             <button type="button" data-action="delete" class="library-image-popover__delete">
-                ${label ? 'Supprimer la référence (garder le mot)' : 'Supprimer la référence'}
+                ${label ? 'Supprimer la référence (garder le texte)' : 'Supprimer la référence'}
             </button>
             <button type="button" data-action="close" class="library-image-popover__close">OK</button>
         </div>`
@@ -431,8 +528,30 @@ function followDrag(view, event) {
         return clearAim(view)
     }
 
-    const word = wordAt(view.state.doc, at.pos)
     const waiting = pending.get(view)
+
+    // Un mot déjà englobé : glisser plus loin étend le passage, mot par mot, du côté où l'on va.
+    if (waiting?.armed) {
+        const passage = extendWord(view.state.doc, waiting.word, at.pos)
+
+        if (passage) {
+            return aim(view, { pos: at.pos, word: passage, armed: true })
+        }
+
+        pending.delete(view)
+    }
+
+    // Sur le texte sélectionné : il est la cible, tout de suite.
+    const selected = selectionAt(view.state, at.pos)
+
+    if (selected) {
+        clearTimeout(waiting?.timer)
+        pending.delete(view)
+
+        return aim(view, { pos: at.pos, word: selected, armed: true })
+    }
+
+    const word = wordAt(view.state.doc, at.pos)
 
     if (!word) {
         clearTimeout(waiting?.timer)
@@ -702,9 +821,14 @@ export default Node.create({
 
                         const decorations = [Decoration.widget(target.pos, caret, { side: -1, key: 'library-image-drop-caret' })]
 
-                        // En attente d'être englobé : le mot se souligne déjà.
-                        if (word) {
-                            decorations.push(Decoration.inline(word.from, word.to, { class: 'library-image-drop-word is-pending' }))
+                        // En attente d'être englobé : le mot se souligne déjà. Le texte sélectionné, que le navigateur ne
+                        // montre plus depuis qu'on a attrapé la carte, se souligne aussi : on voit où le lâcher.
+                        const selected = selectedText(state)
+
+                        for (const range of [word, selected]) {
+                            if (range && !(range === selected && word && word.from < selected.to && word.to > selected.from)) {
+                                decorations.push(Decoration.inline(range.from, range.to, { class: 'library-image-drop-word is-pending' }))
+                            }
                         }
 
                         return DecorationSet.create(state.doc, decorations)
@@ -766,7 +890,8 @@ export default Node.create({
                         const { schema, doc } = view.state
                         const content = []
 
-                        // Le mot englobé devient la première référence ; les espaces autour sont déjà celles du texte.
+                        // Le mot englobé (ou le texte sélectionné) devient la première référence ; les espaces autour sont
+                        // déjà celles du texte.
                         const word = target?.armed ? target.word : null
                         const wrapsWord =
                             word !== null &&
