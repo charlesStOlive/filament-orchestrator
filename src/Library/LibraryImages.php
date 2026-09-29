@@ -207,6 +207,10 @@ final class LibraryImages
             'caption' => $media->getCustomProperty('caption'),
             'copyright' => $media->copyright(),
             'header' => $header,
+            // Le cadrage : la partie gardée quand un affichage recadre l'image (LibraryMedia::FOCUSES), en %, et
+            // le même en `object-position`.
+            'focus' => $media->focusPoint(),
+            'objectPosition' => $media->objectPosition(),
         ];
     }
 

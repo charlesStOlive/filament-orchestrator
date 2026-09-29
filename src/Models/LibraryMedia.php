@@ -7,6 +7,8 @@ use CharlesStOlive\FilamentOrchestrator\Library\VideoMetadataReader;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Spatie\Image\Enums\CropPosition;
+use Spatie\MediaLibrary\Conversions\FileManipulator;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Spatie\Tags\HasTags;
@@ -167,6 +169,108 @@ class LibraryMedia extends Media
         return $this->getUrl().'#t='.($start ?? 0).($end === null ? '' : ','.$end);
     }
 
+    /**
+     * Les cadrages d'une image : la partie qu'on garde quand un affichage la recadre (`object-fit: cover`, et la
+     * vignette carrée `thumb`, fabriquée d'après lui). Clé → libellé, icône (la flèche qui pointe vers la partie
+     * gardée), point d'ancrage en % (`object-position`) et position de découpe de la vignette. Non destructif,
+     * comme la coupe d'une vidéo : le fichier reste entier.
+     */
+    public const FOCUSES = [
+        'top-left' => ['label' => 'En haut à gauche', 'icon' => 'heroicon-m-arrow-up-left', 'x' => 0, 'y' => 0, 'crop' => CropPosition::TopLeft],
+        'top' => ['label' => 'En haut', 'icon' => 'heroicon-m-arrow-up', 'x' => 50, 'y' => 0, 'crop' => CropPosition::Top],
+        'top-right' => ['label' => 'En haut à droite', 'icon' => 'heroicon-m-arrow-up-right', 'x' => 100, 'y' => 0, 'crop' => CropPosition::TopRight],
+        'left' => ['label' => 'À gauche', 'icon' => 'heroicon-m-arrow-left', 'x' => 0, 'y' => 50, 'crop' => CropPosition::Left],
+        'center' => ['label' => 'Au centre', 'icon' => 'heroicon-m-arrows-pointing-in', 'x' => 50, 'y' => 50, 'crop' => CropPosition::Center],
+        'right' => ['label' => 'À droite', 'icon' => 'heroicon-m-arrow-right', 'x' => 100, 'y' => 50, 'crop' => CropPosition::Right],
+        'bottom-left' => ['label' => 'En bas à gauche', 'icon' => 'heroicon-m-arrow-down-left', 'x' => 0, 'y' => 100, 'crop' => CropPosition::BottomLeft],
+        'bottom' => ['label' => 'En bas', 'icon' => 'heroicon-m-arrow-down', 'x' => 50, 'y' => 100, 'crop' => CropPosition::Bottom],
+        'bottom-right' => ['label' => 'En bas à droite', 'icon' => 'heroicon-m-arrow-down-right', 'x' => 100, 'y' => 100, 'crop' => CropPosition::BottomRight],
+    ];
+
+    public const FOCUS_DEFAULT = 'center';
+
+    /** Le cadrage choisi (une clé de FOCUSES) ; le centre tant qu'on n'en a pas choisi. */
+    public function focus(): string
+    {
+        $focus = $this->getCustomProperty('focus');
+
+        return is_string($focus) && isset(self::FOCUSES[$focus]) ? $focus : self::FOCUS_DEFAULT;
+    }
+
+    /**
+     * Le point d'ancrage du cadrage, en % : `object-position` en CSS, et ce que le navigateur reçoit (voir
+     * LibraryImages::payload()).
+     *
+     * @return array{x: int, y: int}
+     */
+    public function focusPoint(): array
+    {
+        ['x' => $x, 'y' => $y] = self::FOCUSES[$this->focus()];
+
+        return ['x' => $x, 'y' => $y];
+    }
+
+    /** `object-position` en CSS : « 50% 0% » pour un cadrage en haut. */
+    public function objectPosition(): string
+    {
+        ['x' => $x, 'y' => $y] = $this->focusPoint();
+
+        return "{$x}% {$y}%";
+    }
+
+    /**
+     * La découpe de la vignette carrée quand elle suit un cadrage (voir Orchestration::registerMediaConversions()) :
+     * réduite par son petit côté (`landscape` : par la hauteur), l'image est découpée en carré du côté du cadrage. Null
+     * au centre (la découpe d'origine), pour une vidéo, ou tant que la taille de l'image n'est pas gardée.
+     *
+     * Elle ne lit que les propriétés du média, jamais le fichier : on est appelé pendant l'inventaire des conversions,
+     * que la lecture d'un fichier de conversion relancerait. setFocus() garde la taille avant de refaire la vignette.
+     *
+     * @return array{landscape: bool, position: CropPosition}|null
+     */
+    public function thumbCrop(): ?array
+    {
+        $width = (int) $this->getCustomProperty('width', 0);
+        $height = (int) $this->getCustomProperty('height', 0);
+
+        if ($this->isVideo() || $this->focus() === self::FOCUS_DEFAULT || $width < 1 || $height < 1) {
+            return null;
+        }
+
+        return [
+            'landscape' => $width >= $height,
+            'position' => self::FOCUSES[$this->focus()]['crop'],
+        ];
+    }
+
+    /**
+     * Enregistre un cadrage, et refait la vignette qui le suit. Le centre (celui d'origine) n'est pas gardé : l'image
+     * revient à l'affichage par défaut.
+     */
+    public function setFocus(string $focus): void
+    {
+        $focus = isset(self::FOCUSES[$focus]) ? $focus : self::FOCUS_DEFAULT;
+
+        if ($focus === $this->focus()) {
+            return;
+        }
+
+        if ($focus === self::FOCUS_DEFAULT) {
+            $this->forgetCustomProperty('focus');
+        } else {
+            $this->setCustomProperty('focus', $focus);
+        }
+
+        $this->save();
+
+        // La taille, gardée dans les propriétés au passage : thumbCrop() la lit là.
+        $this->dimensions();
+
+        if ($this->isImage() && $this->hasGeneratedConversion('thumb')) {
+            app(FileManipulator::class)->createDerivedFiles($this, ['thumb']);
+        }
+    }
+
     /** D'où vient la date de prise de vue, pour le dire à qui la lit. */
     public function dateSourceLabel(): string
     {
@@ -217,7 +321,15 @@ class LibraryMedia extends Media
     /** La vignette quand elle existe (sinon l'original, le temps qu'elle soit générée). */
     public function thumbUrl(): string
     {
-        return $this->hasGeneratedConversion('thumb') ? $this->getUrl('thumb') : $this->getUrl();
+        if (! $this->hasGeneratedConversion('thumb')) {
+            return $this->getUrl();
+        }
+
+        // La vignette suit le cadrage (thumbCrop()) : son adresse le dit, pour qu'un navigateur ne garde pas en cache
+        // celle d'un autre cadrage. Au centre, l'adresse d'origine.
+        $focus = $this->focus();
+
+        return $this->getUrl('thumb').($focus === self::FOCUS_DEFAULT ? '' : '?focus='.$focus);
     }
 
     /** Une taille d'affichage quand elle existe (sinon l'original, le temps qu'elle soit générée). */

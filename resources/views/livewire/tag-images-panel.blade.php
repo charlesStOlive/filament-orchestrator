@@ -50,6 +50,10 @@
         En mode `single` (l'image de « une » d'une période), une seule image : on la remplace, on ne réordonne rien,
         et elle n'a ni clé ni numéro — le texte ne la désigne pas.
 
+        Dans les deux modes, un clic sur une image (sans la glisser : le glisser natif n'émet pas de clic) ouvre son
+        cadrage (focusAction) ; une petite flèche en bas à droite dit le cadrage choisi, quand ce n'est pas le centre.
+        Les boutons de la vignette (retirer) gardent leur rôle.
+
         À la suite de la dernière image, toujours, une case « + » : un clic ouvre la bibliothèque (c'est aussi là
         qu'on envoie des fichiers), et on peut y déposer une image glissée depuis la bibliothèque : elle s'ajoute à
         la fin (ou remplace, en mode `single`). Elle ne réagit qu'à ces images-là (pas au réordonnancement d'ici,
@@ -90,14 +94,19 @@
                 <div
                     wire:key="tag-cover-{{ $media->getKey() }}"
                     data-library-cover="{{ $media->getKey() }}"
-                    x-tooltip="{ content: 'Image de une : elle sert de couverture', theme: $store.theme }"
-                    class="group relative rounded-lg ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900"
+                    x-tooltip="{ content: @js($media->isPlayable() ? 'Image de une : elle sert de couverture' : 'Image de une : elle sert de couverture. Cliquer pour la cadrer'), theme: $store.theme }"
+                    @unless ($media->isPlayable())
+                        x-on:click="if (! $event.target.closest('button')) $wire.mountAction('focus', { media: {{ $media->getKey() }} })"
+                    @endunless
+                    class="group relative rounded-lg ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900 {{ $media->isPlayable() ? '' : 'cursor-pointer' }}"
                 >
                     @include('filament-orchestrator::livewire.partials.tile-media', ['media' => $media])
 
                     <span class="pointer-events-none absolute left-1 top-1 flex items-center rounded-full bg-primary-600/90 p-1 text-white shadow">
                         <x-filament::icon :icon="$this->headerIcon()" class="h-3 w-3" />
                     </span>
+
+                    @include('filament-orchestrator::livewire.partials.tile-focus', ['media' => $media])
 
                     <button
                         type="button"
@@ -123,6 +132,9 @@
                     x-on:mouseenter="$dispatch('{{ $this->hoverEvent() }}', { media: {{ $media->getKey() }}, on: true, source: 'panel' })"
                     x-on:mouseleave="$dispatch('{{ $this->hoverEvent() }}', { media: {{ $media->getKey() }}, on: false, source: 'panel' })"
                     x-on:{{ $this->hoverEvent() }}.window="if ($event.detail.media === {{ $media->getKey() }}) linked = $event.detail.on"
+                    @unless ($media->isPlayable())
+                        x-on:click="if (! $event.target.closest('button')) $wire.mountAction('focus', { media: {{ $media->getKey() }} })"
+                    @endunless
                     x-bind:class="linked ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : ''"
                     @if ($media->getKey() === $this->fallbackCoverId)
                         data-library-header
@@ -143,6 +155,8 @@
                         data-library-number
                         class="pointer-events-none absolute bottom-1 left-1 min-w-5 rounded-full bg-black/60 px-1.5 text-center text-[10px] font-semibold leading-5 text-white shadow"
                     >{{ $media->isVideo() ? 'V' : '' }}{{ $this->positions[$media->getKey()] }}</span>
+
+                    @include('filament-orchestrator::livewire.partials.tile-focus', ['media' => $media])
 
                     <button
                         type="button"
@@ -190,9 +204,13 @@
         @endif
     </div>
 
-    @if (! $single && ($this->images->count() > 1 || $this->fallbackCoverId !== null))
+    @php($framable = $this->images->contains(fn ($media): bool => ! $media->isPlayable()))
+    @if ($framable || (! $single && $this->images->count() > 1))
         <p class="text-xs text-gray-500 dark:text-gray-400">
-            @if ($this->images->count() > 1)
+            @if ($framable)
+                Cliquez sur une image pour choisir son cadrage.
+            @endif
+            @if (! $single && $this->images->count() > 1)
                 Glissez pour réordonner, ou dans le texte pour y écrire une référence.
             @endif
             @if ($this->fallbackCoverId !== null)

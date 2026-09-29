@@ -67,8 +67,16 @@ class Orchestration extends Model implements HasMedia
     public function registerMediaConversions(?Media $media = null): void
     {
         $thumb = $this->addMediaConversion('thumb')
-            ->performOnCollections(self::LIBRARY_COLLECTION)
-            ->fit(Fit::Crop, 480, 480);
+            ->performOnCollections(self::LIBRARY_COLLECTION);
+
+        // Un cadrage choisi (LibraryMedia::setFocus()) : réduite par son petit côté, l'image est découpée en carré de
+        // son côté. Sinon, découpée au centre.
+        if ($media instanceof LibraryMedia && ($crop = $media->thumbCrop()) !== null) {
+            $crop['landscape'] ? $thumb->height(480) : $thumb->width(480);
+            $thumb->crop(480, 480, $crop['position']);
+        } else {
+            $thumb->fit(Fit::Crop, 480, 480);
+        }
 
         // Les tailles d'affichage : un original de smartphone pèse plusieurs
         // Mo, un front ne doit jamais l'envoyer tel quel. Le côté le plus long

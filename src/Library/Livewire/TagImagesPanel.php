@@ -13,10 +13,12 @@ use CharlesStOlive\FilamentUi\Split\SidePaneEvent;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
+use Filament\Forms\Components\ViewField;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Support\Enums\Size;
+use Filament\Support\Enums\Width;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -315,6 +317,51 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
             ->label('Ouvrir la bibliothèque')
             ->size(Size::Small)
             ->outlined();
+    }
+
+    /**
+     * Le cadrage d'une image (LibraryMedia::FOCUSES) : un clic sur sa vignette ouvre une grille de 3 × 3, la même image
+     * dans chaque case, recadrée comme elle le serait de ce côté, une flèche par-dessus. Il ne sert qu'aux affichages
+     * qui recadrent l'image (et à sa vignette carrée) ; une vidéo n'a pas de cadrage.
+     */
+    public function focusAction(): Action
+    {
+        $media = function (array $arguments): LibraryMedia {
+            $media = $this->orchestration->libraryMedia()->findOrFail($arguments['media'] ?? 0);
+
+            abort_if($media->isPlayable(), 404);
+
+            return $media;
+        };
+
+        return Action::make('focus')
+            ->modalHeading('Cadrage de l’image')
+            ->modalDescription('La partie à garder quand l’affichage recadre l’image : en carrousel ou en plein écran, sur une carte, dans une vignette, en fond de page. Une image affichée entière n’en tient pas compte.')
+            ->modalWidth(Width::ExtraLarge)
+            ->modalSubmitActionLabel('Appliquer')
+            ->fillForm(fn (array $arguments): array => ['focus' => $media($arguments)->focus()])
+            ->schema(fn (array $arguments): array => [
+                ViewField::make('focus')
+                    ->hiddenLabel()
+                    ->view('filament-orchestrator::library.focus-picker')
+                    ->viewData([
+                        'imageUrl' => $media($arguments)->conversionUrl('medium'),
+                        'focuses' => LibraryMedia::FOCUSES,
+                    ]),
+            ])
+            ->action(function (array $data, array $arguments) use ($media): void {
+                $media($arguments)->setFocus((string) ($data['focus'] ?? LibraryMedia::FOCUS_DEFAULT));
+
+                $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+            });
+    }
+
+    /** L'icône du cadrage d'une image, pour la vue : null au centre (rien à signaler). */
+    public function focusIcon(LibraryMedia $media): ?string
+    {
+        $focus = $media->focus();
+
+        return $focus === LibraryMedia::FOCUS_DEFAULT ? null : LibraryMedia::FOCUSES[$focus]['icon'];
     }
 
     /** Retire l'image de cet ensemble, sans la supprimer : elle reste dans la bibliothèque. */

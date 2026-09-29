@@ -194,6 +194,23 @@ trier, filtrer et grouper.
   `manual` quand on l'a corrigée) et `LibraryMedia::hasReliableDate()` la
   distingue : un tagger ne doit pas s'y fier.
 
+### Cadrage d'une image
+
+- **Neuf positions** (`LibraryMedia::FOCUSES` : `top-left`, `top`, … `bottom-right`,
+  `center` par défaut) disent la partie à garder quand un affichage recadre
+  l'image. Elles sont gardées sur l'image (propriété `focus`), non destructives :
+  le fichier reste entier. Une vidéo n'en a pas.
+- **Dans `TagImagesPanel`** (grille comme `single`), un clic sur une vignette
+  (sans la glisser) ouvre une grille de 3 × 3 : la même image dans chaque case,
+  recadrée en 16:9 de ce côté, une flèche par-dessus ; « Appliquer » l'enregistre
+  (`LibraryMedia::setFocus()`). Une petite flèche marque ensuite la vignette.
+- **Côté navigateur**, le payload porte `focus` (`{x, y}` en %) et
+  `objectPosition` (« 50% 0% ») : à l'affichage d'appliquer `object-position`.
+- **La vignette carrée** (`thumb`) suit le cadrage : réduite par son petit côté,
+  l'image est découpée de ce côté (`LibraryMedia::thumbCrop()`), et `setFocus()`
+  refait la vignette. Son adresse porte le cadrage (`?focus=top`), pour qu'aucun
+  navigateur ne garde l'ancienne en cache.
+
 ### Vidéos
 
 Une vidéo entre dans la bibliothèque comme une image (`LibraryIngestor`), mais **le
