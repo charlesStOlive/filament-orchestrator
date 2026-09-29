@@ -201,8 +201,9 @@ trier, filtrer et grouper.
   l'image. Elles sont gardées sur l'image (propriété `focus`), non destructives :
   le fichier reste entier. Une vidéo n'en a pas.
 - **Dans `TagImagesPanel`** (grille comme `single`), un clic sur une vignette
-  (sans la glisser) ouvre une grille de 3 × 3 : la même image dans chaque case,
-  recadrée en 16:9 de ce côté, une flèche par-dessus ; « Appliquer » l'enregistre
+  (sans la glisser) ouvre une grille de 3 × 3 : la même image dans chaque case
+  carrée, recadrée de ce côté et agrandie de 20 % vers lui (pour que la différence
+  se voie même sur une image presque carrée), une flèche par-dessus ; « Appliquer » l'enregistre
   (`LibraryMedia::setFocus()`). Une petite flèche marque ensuite la vignette.
 - **Côté navigateur**, le payload porte `focus` (`{x, y}` en %) et
   `objectPosition` (« 50% 0% ») : à l'affichage d'appliquer `object-position`.
