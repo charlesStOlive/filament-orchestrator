@@ -80,7 +80,9 @@ abstract class AutomationResource extends Resource
             static::validate($data);
             $compiled = static::compileProjection($data);
 
-            $orchestration = Orchestration::query()->create(static::creationAttributes($compiled->definition));
+            // Le modèle de la Resource : une automatisation peut avoir le sien (une sous-classe d'Orchestration, avec
+            // ses états ou son propriétaire), sur la même table.
+            $orchestration = static::getModel()::query()->create(static::creationAttributes($compiled->definition));
             static::persist($orchestration, $compiled);
 
             return $orchestration->refresh();
