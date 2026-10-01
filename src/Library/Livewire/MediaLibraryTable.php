@@ -9,6 +9,7 @@ use CharlesStOlive\FilamentOrchestrator\Library\LibraryAction;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryContext;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryImages;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryIngestor;
+use CharlesStOlive\FilamentOrchestrator\Library\LibraryPermissions;
 use CharlesStOlive\FilamentOrchestrator\Library\MediaMetadata;
 use CharlesStOlive\FilamentOrchestrator\Library\TagLabels;
 use CharlesStOlive\FilamentOrchestrator\Library\YoutubeUrl;
@@ -286,6 +287,15 @@ class MediaLibraryTable extends TableComponent
         return Orchestration::query()->findOrFail($this->orchestrationId);
     }
 
+    /** @var array<string, bool> Les droits déjà consultés pendant cette requête. */
+    private array $allowed = [];
+
+    /** Un geste de la bibliothèque (`upload`, `edit`…) ou une action de l'application (son nom) : voir LibraryPermissions. */
+    private function allows(string $action): bool
+    {
+        return $this->allowed[$action] ??= LibraryPermissions::allows($this->orchestration, $action);
+    }
+
     /**
      * Tags de la bibliothèque, prêts pour un Select : nom technique => libellé.
      *
@@ -326,6 +336,8 @@ class MediaLibraryTable extends TableComponent
                             'tags' => $this->visibleTags($record),
                             'tagLabels' => $this->tagLabels($record),
                             'marks' => $this->marksOf($record),
+                            'canEdit' => $this->allows('edit'),
+                            'canDelete' => $this->allows('delete'),
                         ]),
                     // Ne dessine rien : elle est là pour que « Trier par » propose le type (images, puis vidéos).
                     ViewColumn::make('mime_type')
@@ -364,6 +376,7 @@ class MediaLibraryTable extends TableComponent
             ->selectable()
             ->toolbarActions([
                 MediaUploadAction::make('upload')
+                    ->authorize(fn (): bool => $this->allows('upload'))
                     ->record($this->orchestration)
                     ->tags($this->focusTags)
                     ->source('library')
@@ -609,6 +622,7 @@ class MediaLibraryTable extends TableComponent
             ->icon('heroicon-o-trash')
             ->color('danger')
             ->extraAttributes(['class' => 'hidden'])
+            ->authorize(fn (): bool => $this->allows('delete'))
             ->requiresConfirmation()
             ->modalHeading(fn (LibraryMedia $record): string => $record->isVideo() ? 'Supprimer cette vidéo ?' : 'Supprimer cette image ?')
             ->modalDescription(fn (LibraryMedia $record): string => $this->deletionDescription($record))
@@ -646,6 +660,7 @@ class MediaLibraryTable extends TableComponent
             ->icon('heroicon-o-trash')
             ->color('danger')
             ->outlined()
+            ->authorize(fn (): bool => $this->allows('delete'))
             ->requiresConfirmation()
             ->modalHeading(fn (LibraryMedia $record): string => $record->isVideo() ? 'Supprimer cette vidéo ?' : 'Supprimer cette image ?')
             ->modalDescription(fn (LibraryMedia $record): string => $this->deletionDescription($record))
@@ -678,6 +693,9 @@ class MediaLibraryTable extends TableComponent
                 default => 'Modifier l’image',
             })
             ->modalWidth(Width::Screen)
+            // Sans le droit de modifier, la fiche s'ouvre quand même, en lecture : on y voit l'image en grand.
+            ->disabledSchema(fn (): bool => ! $this->allows('edit'))
+            ->modalSubmitAction(fn (Action $action): Action|false => $this->allows('edit') ? $action : false)
             ->modalSubmitActionLabel('Enregistrer')
             ->extraModalFooterActions(fn (): array => [$this->deleteFromPopupAction()])
             ->fillForm(fn (LibraryMedia $record): array => [
@@ -749,6 +767,10 @@ class MediaLibraryTable extends TableComponent
                 ]),
             ])
             ->action(function (LibraryMedia $record, array $data): void {
+                if (! $this->allows('edit')) {
+                    return;
+                }
+
                 // Un autre lien YouTube collé ici : au fond, une autre vidéo. On la ré-ingère (nouvelle vignette),
                 // en gardant nom/légende/texte alternatif/tags de la fiche qu'elle remplace, puis l'ancienne fiche
                 // disparaît. Le reste de l'action ne s'applique plus : elle s'arrête ici dans ce cas.
@@ -927,6 +949,7 @@ class MediaLibraryTable extends TableComponent
                         default => $libraryAction->refuses($selectedRecords->values()),
                     },
                 )
+                ->authorize(fn (): bool => $this->allows($libraryAction->getName()))
                 // Un raccourci de la barre d'outils manque de place : libellé court, le complet en infobulle.
                 ->label($shortcut ? $libraryAction->getShortLabel() : $libraryAction->getLabel())
                 ->tooltip($shortcut ? $libraryAction->getLabel() : null)
@@ -1062,6 +1085,7 @@ class MediaLibraryTable extends TableComponent
     private function tagAction(): Action
     {
         return $this->selectionAction('tag')
+            ->authorize(fn (): bool => $this->allows('tag'))
             ->label('Ajouter des tags')
             ->icon('heroicon-o-tag')
             ->schema([$this->tagSelect('tags', 'Tags à ajouter')->required()])
@@ -1077,6 +1101,7 @@ class MediaLibraryTable extends TableComponent
     private function untagAction(): Action
     {
         return $this->selectionAction('untag')
+            ->authorize(fn (): bool => $this->allows('tag'))
             ->label('Retirer des tags')
             ->icon('heroicon-o-x-circle')
             ->schema([$this->tagSelect('tags', 'Tags à retirer')->required()])
@@ -1092,6 +1117,7 @@ class MediaLibraryTable extends TableComponent
     private function deleteAction(): Action
     {
         return $this->selectionAction('delete')
+            ->authorize(fn (): bool => $this->allows('delete'))
             ->label('Supprimer les images')
             ->icon('heroicon-o-trash')
             ->color('danger')

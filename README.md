@@ -369,6 +369,27 @@ deux voyages ne partagent jamais un tag. La configuration se trouve sous la clé
 `library` ; comme la fusion de config est superficielle, une application qui la
 publie doit en reprendre toutes les clés.
 
+### Droits de la bibliothèque (`LibraryPermissions`)
+
+Charger, modifier, taguer, supprimer des images, et chaque action déclarée dans
+`library.actions`, consultent l'ability Gate
+`{Resource de l'automatisation}.library.{geste ou nom de l'action}` quand
+l'application la définit ; sinon, ils restent ouverts à qui ouvre la bibliothèque.
+Le package ne dépend d'aucun gestionnaire de permissions : `AutomationResource`
+déclare ces actions au format de filament-permission-manager
+(`$permissionFamilies = ['library' => 'Bibliothèque']`, `permissionActions()`),
+qui en fait la famille « Bibliothèque » de l'écran des rôles
+(`{liste}.library.upload`, `….library.header`… et `{liste}.library.*` pour tout,
+y compris les actions à venir).
+
+Sans le droit de modifier, la fiche d'une image s'ouvre en lecture (un œil sur la
+carte plutôt qu'un crayon) ; sans celui de supprimer, la poubelle disparaît. Ajouter
+des images à une journée, les ordonner ou les retirer, c'est modifier
+l'orchestration : son droit de modification suffit.
+
+Une automatisation qui ajoute ses propres familles redéclare `$permissionFamilies`
+avec `library` et fusionne `parent::permissionActions()`.
+
 ## Tables
 
 - `filament_orchestrator_orchestrations` : instance, schéma, scope, configuration et état initial ;

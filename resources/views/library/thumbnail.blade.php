@@ -235,10 +235,12 @@
 
     {{-- Le crayon (repère) puis la poubelle (bouton), en colonne dans le coin. --}}
     <div class="pointer-events-none absolute flex flex-col gap-1 {{ $small ? 'right-1.5 top-1.5' : 'right-2 top-2' }}">
+        {{-- Sans le droit de modifier, la fiche s'ouvre en lecture : un œil plutôt qu'un crayon. --}}
         <span data-library-edit-mark class="{{ $chip }} {{ $pad }}">
-            <x-filament::icon icon="heroicon-m-pencil-square" class="{{ $icon }}" />
+            <x-filament::icon :icon="($canEdit ?? true) ? 'heroicon-m-pencil-square' : 'heroicon-m-eye'" class="{{ $icon }}" />
         </span>
 
+        @if ($canDelete ?? true)
         <span
             role="button"
             data-library-delete-mark
@@ -249,5 +251,6 @@
         >
             <x-filament::icon icon="heroicon-m-trash" class="{{ $icon }}" />
         </span>
+        @endif
     </div>
 </div>

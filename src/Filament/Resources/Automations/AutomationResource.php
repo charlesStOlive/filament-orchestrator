@@ -6,6 +6,7 @@ use CharlesStOlive\FilamentOrchestrator\Automations\NodeSynchronizer;
 use CharlesStOlive\FilamentOrchestrator\Automations\Projection\CompiledProjection;
 use CharlesStOlive\FilamentOrchestrator\Automations\Projection\Projection;
 use CharlesStOlive\FilamentOrchestrator\Filament\Concerns\BelongsToConfiguredOrchestratorCluster;
+use CharlesStOlive\FilamentOrchestrator\Library\LibraryPermissions;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
 use CharlesStOlive\FilamentOrchestrator\Schemas\OrchestratorSchema;
 use CharlesStOlive\FilamentOrchestrator\Services\AutomationGraphSynchronizer;
@@ -44,6 +45,22 @@ abstract class AutomationResource extends Resource
     protected static string $automationSchema;
 
     protected static int $automationVersion = 1;
+
+    /**
+     * Les droits de la bibliothèque, au format de filament-permission-manager (qui les lit sans que ce package en
+     * dépende) : la famille « Bibliothèque », une case par geste et par action de l'application. Une automatisation qui
+     * ajoute ses propres familles redéclare `$permissionFamilies` avec `library`, et fusionne `parent::permissionActions()`.
+     * Voir LibraryPermissions.
+     *
+     * @var array<string, string>
+     */
+    protected static array $permissionFamilies = [LibraryPermissions::FAMILY => 'Bibliothèque'];
+
+    /** @return array<string, string> */
+    public static function permissionActions(): array
+    {
+        return LibraryPermissions::actions();
+    }
 
     public static function getAutomationKey(): string
     {
