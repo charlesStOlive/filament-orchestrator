@@ -73,6 +73,7 @@
         l'élément — ses espaces et son numéro —, que l'éditeur déposerait tel quel, en autant de paragraphes. Le marqueur
         `-panel` dit à la case de dépôt que ce glisser vient d'ici : elle n'a rien à en faire. Le glisser montre une petite
         étiquette (« Image 3 ») plutôt que la vignette : on voit où l'on vise dans le texte (voir library-drag.js).
+        Au dépôt, la page reste où elle était pendant qu'elle se redessine (`libraryHoldScroll`, même fichier).
     --}}
     <div
         @unless ($single)
@@ -84,7 +85,8 @@
                 dataTransfer.setData(@js($this->dragType().'-panel'), '1')
                 window.libraryDragGhost?.(dataTransfer, items)
             }))"
-            x-on:end.stop="$wire.reorder($event.target.sortable.toArray())"
+            x-on:start="window.libraryScrollAtDrag = window.scrollY"
+            x-on:end.stop="window.libraryHoldScroll?.(window.libraryScrollAtDrag ?? window.scrollY); $wire.reorder($event.target.sortable.toArray())"
         @else
             data-library-cover-panel
         @endunless

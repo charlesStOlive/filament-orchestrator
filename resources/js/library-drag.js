@@ -40,3 +40,46 @@ window.libraryDragGhost = (dataTransfer, items) => {
     // Le navigateur a pris son image : l'élément peut partir.
     setTimeout(() => ghost.remove())
 }
+
+/*
+ * Réordonner les vignettes d'un panneau d'images ne doit pas faire bouger la page.
+ *
+ * Le dépôt enregistre l'ordre, puis la page entière se redessine (ses cartes de période lisent leur couverture dans la
+ * bibliothèque) : deux allers-retours, après lesquels la page remontait parfois en haut. Le panneau note la position de
+ * la page au début du glisser (`libraryScrollAtDrag`) et, au dépôt, la tient à cette place le temps que tout se
+ * redessine. Dès qu'on fait défiler soi-même (molette, doigt, clavier, clic), on reprend la main.
+ */
+window.libraryHoldScroll = (top, ms = 2500) => {
+    if (!Number.isFinite(top)) {
+        return
+    }
+
+    const until = performance.now() + ms
+    const inputs = ['wheel', 'touchmove', 'keydown', 'pointerdown']
+    let released = false
+
+    const release = () => {
+        released = true
+        inputs.forEach((type) => window.removeEventListener(type, release, true))
+    }
+
+    inputs.forEach((type) => window.addEventListener(type, release, { capture: true, passive: true }))
+
+    const hold = () => {
+        if (released) {
+            return
+        }
+
+        if (performance.now() > until) {
+            return release()
+        }
+
+        if (Math.abs(window.scrollY - top) > 1) {
+            window.scrollTo({ top, behavior: 'instant' })
+        }
+
+        requestAnimationFrame(hold)
+    }
+
+    hold()
+}
