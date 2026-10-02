@@ -3,6 +3,7 @@
 namespace CharlesStOlive\FilamentOrchestrator\Library\Livewire;
 
 use Carbon\CarbonImmutable;
+use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaDuplicatesAction;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaLibrarySidePane;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaUploadAction;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryAction;
@@ -287,6 +288,25 @@ class MediaLibraryTable extends TableComponent
         return Orchestration::query()->findOrFail($this->orchestrationId);
     }
 
+    /**
+     * La seconde fenêtre d'un envoi, quand des fichiers semblaient déjà dans la bibliothèque : MediaUploadAction l'ouvre
+     * à la place de la sienne.
+     */
+    public function mediaDuplicatesAction(): Action
+    {
+        return MediaDuplicatesAction::make()->authorize(fn (): bool => $this->allows('upload'));
+    }
+
+    /**
+     * Des images en cours d'optimisation (leurs conversions passent par la file d'attente) : la grille se redessine
+     * toutes les quelques secondes, jusqu'à ce que leurs vignettes soient là.
+     */
+    #[Computed]
+    public function hasOptimizingMedia(): bool
+    {
+        return $this->orchestration->libraryMedia()->getQuery()->optimizing()->exists();
+    }
+
     /** @var array<string, bool> Les droits déjà consultés pendant cette requête. */
     private array $allowed = [];
 
@@ -352,6 +372,7 @@ class MediaLibraryTable extends TableComponent
                 ? null
                 : view('filament-orchestrator::library.focus-banner', ['label' => $this->focusLabel]))
             ->contentGrid(fn (): array => self::SIZES[$this->currentSize()]['grid'])
+            ->poll(fn (): ?string => $this->hasOptimizingMedia ? '4s' : null)
             ->defaultSort('taken_at')
             ->paginated([24, 48, 96])
             ->defaultPaginationPageOption(48)

@@ -133,6 +133,16 @@ trier, filtrer et grouper.
   `MediaUploadAction::make()->record($voyage)->tags(['day:3f9c…'])`. Il émet
   ensuite l'événement Livewire `orchestrator-library-updated`, que les
   composants qui affichent la bibliothèque écoutent pour se rafraîchir.
+- **Doublons** : au clic sur « Charger », un fichier déjà dans la bibliothèque —
+  même nom d'origine (`original_name`, gardé à l'envoi ; pour un média plus
+  ancien, son `file_name`), et même date de prise de vue lue dans le fichier
+  ou même poids — est mis de côté, comme un fichier présent deux fois dans
+  l'envoi (`Library\LibraryDuplicates`). Les autres sont chargés, puis
+  `MediaDuplicatesAction` remplace la fenêtre de l'envoi : on coche ceux à
+  charger quand même. Le composant qui héberge l'envoi la déclare par une
+  méthode `mediaDuplicatesAction()` (c'est le cas de `MediaLibraryTable`) ;
+  sans elle, les doublons ne sont pas chargés et une notification les nomme.
+  Ses arguments (fichiers temporaires, tags, voyage) sont chiffrés.
 - **Gérer** : `MediaLibraryAction` ouvre `MediaLibraryTable`, une grille de
   cartes avec filtres (date, tags, GPS, autour d'un point), groupements (date,
   zone), actions groupées de tag, et trois tailles de vignettes S / M / L (S : petits carrés à icônes ; le choix est gardé en session). Elle s'ajoute comme n'importe quelle
@@ -167,6 +177,16 @@ trier, filtrer et grouper.
   gardées dans les propriétés du média (`LibraryMedia::dimensions()`). Pour des
   images entrées avant ces conversions :
   `artisan media-library:regenerate --only=medium --only=large`.
+- **File d'attente** : avec `library.queue_conversions` à `true`, les trois
+  conversions passent par la file (un worker doit tourner) et l'envoi rend la
+  main tout de suite. En attendant, l'image s'affiche par son original et se dit
+  « en cours d'optimisation » (`LibraryMedia::isOptimizing()`, scope
+  `optimizing()`) : pastille sur la carte et la tuile, phrase dans la
+  notification de l'envoi, grille et panneau qui se redessinent toutes les 4 s
+  jusqu'à ce qu'elles soient là. Au-delà de 30 minutes
+  (`LibraryMedia::OPTIMIZING_MINUTES`), une conversion manquante est tenue pour
+  échouée : l'image ne se dit plus en cours. La vignette refaite par un
+  cadrage (`setFocus()`), elle, reste immédiate.
 - **Libellés** : un tag technique (`day:3f9c…`) s'affiche par le
   `LibraryTagLabeler` de l'application (« J2 · Arrivée à Lisbonne »).
 

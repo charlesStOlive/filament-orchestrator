@@ -32,7 +32,11 @@ final class LibraryIngestor
 
         $media = $orchestration->addMedia($file)->preservingOriginal();
 
-        return $this->store($orchestration, $media, $this->extractor->extract($path), $context ?? new IngestContext);
+        // Le nom du fichier sur l'appareil de qui l'a chargé : c'est lui qui reconnaît un doublon (LibraryDuplicates),
+        // même après qu'on a renommé l'image.
+        return $this->store($orchestration, $media, $this->extractor->extract($path), $context ?? new IngestContext, [
+            'original_name' => $file instanceof UploadedFile ? $file->getClientOriginalName() : basename($file),
+        ]);
     }
 
     /** Pour un fichier déjà posé sur un disque, par exemple par un FileUpload Filament. */

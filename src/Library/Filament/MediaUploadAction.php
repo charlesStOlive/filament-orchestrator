@@ -4,7 +4,9 @@ namespace CharlesStOlive\FilamentOrchestrator\Library\Filament;
 
 use Closure;
 use CharlesStOlive\FilamentOrchestrator\Library\IngestContext;
+use CharlesStOlive\FilamentOrchestrator\Library\LibraryDuplicates;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryIngestor;
+use CharlesStOlive\FilamentOrchestrator\Library\MetadataExtractor;
 use CharlesStOlive\FilamentOrchestrator\Library\TagLabels;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
@@ -156,13 +158,24 @@ class MediaUploadAction extends Action
             });
     }
 
-    /** @param array<int, mixed> $files */
+    /**
+     * Charge les fichiers, sauf ceux qui sont déjà dans la bibliothèque (voir LibraryDuplicates) — ou deux fois dans cet
+     * envoi : ceux-là sont mis de côté, et une seconde fenêtre (MediaDuplicatesAction) demande lesquels charger quand
+     * même. Elle remplace celle-ci, si le composant qui l'héberge la déclare ; sinon ils ne sont pas chargés, et une
+     * notification le dit.
+     *
+     * @param array<int, mixed> $files
+     */
     private function ingest(Orchestration $orchestration, array $files): void
     {
         $ingestor = app(LibraryIngestor::class);
+        $extractor = app(MetadataExtractor::class);
+        $duplicates = app(LibraryDuplicates::class);
         $context = new IngestContext(tags: $this->getTags(), source: $this->evaluate($this->source));
-        $added = 0;
+        $added = [];
         $failed = [];
+        $setAside = [];
+        $seen = [];
 
         foreach ($files as $file) {
             if (! $file instanceof UploadedFile) {
@@ -176,20 +189,34 @@ class MediaUploadAction extends Action
                 continue;
             }
 
+            $name = $file->getClientOriginalName();
+            $metadata = $extractor->extract((string) $file->getRealPath());
+            $key = $duplicates->key($name, $metadata, (int) $file->getSize());
+            $existing = $duplicates->find($orchestration, $name, $metadata, (int) $file->getSize());
+
+            if ($existing !== null || isset($seen[$key])) {
+                $setAside[] = [
+                    'path' => (string) $file->getRealPath(),
+                    'name' => $name,
+                    'mime' => (string) $file->getMimeType(),
+                    'existing' => $existing?->getKey() ?? $seen[$key],
+                ];
+
+                continue;
+            }
+
             try {
-                $ingestor->ingest($orchestration, $file, $context);
-                $added++;
+                $media = $ingestor->ingest($orchestration, $file, $context);
+                $added[] = $media;
+                $seen[$key] = $media->getKey();
             } catch (Throwable $exception) {
                 // Une image illisible ne doit pas faire perdre les suivantes.
                 report($exception);
-                $failed[] = $file->getClientOriginalName();
+                $failed[] = $name;
             }
         }
 
-        if ($added > 0) {
-            Notification::make()->success()->title($added.' fichier(s) ajouté(s) à la bibliothèque')->send();
-            $this->getLivewire()?->dispatch(self::UPDATED_EVENT, orchestrationId: $orchestration->getKey());
-        }
+        self::notifyAdded($orchestration, $added, $this->getLivewire());
 
         if ($failed !== []) {
             Notification::make()->warning()
@@ -197,6 +224,51 @@ class MediaUploadAction extends Action
                 ->body(implode(', ', $failed))
                 ->send();
         }
+
+        if ($setAside === []) {
+            return;
+        }
+
+        $livewire = $this->getLivewire();
+
+        if ($livewire !== null && method_exists($livewire, MediaDuplicatesAction::NAME.'Action') && method_exists($livewire, 'replaceMountedAction')) {
+            $livewire->replaceMountedAction(MediaDuplicatesAction::NAME, MediaDuplicatesAction::argumentsFor(
+                $orchestration,
+                $context,
+                $setAside,
+            ));
+
+            return;
+        }
+
+        Notification::make()->warning()
+            ->title(count($setAside).' fichier(s) déjà dans la bibliothèque, non chargés')
+            ->body(implode(', ', array_column($setAside, 'name')))
+            ->send();
+    }
+
+    /**
+     * Dit combien de fichiers ont rejoint la bibliothèque — et, quand leurs conversions passent par la file d'attente,
+     * que les images sont en cours d'optimisation — puis prévient les composants qui l'affichent.
+     *
+     * @param  array<int, LibraryMedia>  $added
+     */
+    public static function notifyAdded(Orchestration $orchestration, array $added, mixed $livewire, ?string $title = null): void
+    {
+        if ($added === []) {
+            return;
+        }
+
+        $optimizing = count(array_filter($added, fn (LibraryMedia $media): bool => $media->isOptimizing()));
+
+        Notification::make()->success()
+            ->title($title ?? count($added).' fichier(s) ajouté(s) à la bibliothèque')
+            ->body($optimizing > 0
+                ? ($optimizing > 1 ? "{$optimizing} images sont" : 'Une image est').' en cours d’optimisation : vignettes et tailles d’affichage arrivent dans un instant.'
+                : null)
+            ->send();
+
+        $livewire?->dispatch(self::UPDATED_EVENT, orchestrationId: $orchestration->getKey());
     }
 
     private function ingestExternalImage(Orchestration $orchestration, string $url, ?string $copyright): void
@@ -204,9 +276,8 @@ class MediaUploadAction extends Action
         $context = new IngestContext(tags: $this->getTags(), source: $this->evaluate($this->source));
 
         try {
-            app(LibraryIngestor::class)->ingestExternalImage($orchestration, $url, $copyright, $context);
-            Notification::make()->success()->title('Image ajoutée à la bibliothèque')->send();
-            $this->getLivewire()?->dispatch(self::UPDATED_EVENT, orchestrationId: $orchestration->getKey());
+            $media = app(LibraryIngestor::class)->ingestExternalImage($orchestration, $url, $copyright, $context);
+            self::notifyAdded($orchestration, [$media], $this->getLivewire(), 'Image ajoutée à la bibliothèque');
         } catch (Throwable $exception) {
             report($exception);
             Notification::make()->danger()
@@ -221,9 +292,8 @@ class MediaUploadAction extends Action
         $context = new IngestContext(tags: $this->getTags(), source: $this->evaluate($this->source));
 
         try {
-            app(LibraryIngestor::class)->ingestYoutube($orchestration, $urlOrId, $context);
-            Notification::make()->success()->title('Vidéo YouTube ajoutée à la bibliothèque')->send();
-            $this->getLivewire()?->dispatch(self::UPDATED_EVENT, orchestrationId: $orchestration->getKey());
+            $media = app(LibraryIngestor::class)->ingestYoutube($orchestration, $urlOrId, $context);
+            self::notifyAdded($orchestration, [$media], $this->getLivewire(), 'Vidéo YouTube ajoutée à la bibliothèque');
         } catch (Throwable $exception) {
             report($exception);
             Notification::make()->danger()

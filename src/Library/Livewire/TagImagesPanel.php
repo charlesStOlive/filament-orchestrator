@@ -181,6 +181,13 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         return $this->single ? $images->take(1)->values() : $images;
     }
 
+    /** Une image du panneau dont les conversions sont encore en file d'attente : le panneau se redessine (voir la vue). */
+    #[Computed]
+    public function hasOptimizingMedia(): bool
+    {
+        return $this->images->contains(fn (LibraryMedia $media): bool => $media->isOptimizing());
+    }
+
     /**
      * La place de chaque image dans son genre, à partir de 1 : « image 2 » est la deuxième image, « vidéo 1 » la
      * première vidéo — les vidéos se numérotent à part, comme le fait le carnet.

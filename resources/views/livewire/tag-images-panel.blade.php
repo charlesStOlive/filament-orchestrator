@@ -1,4 +1,5 @@
-<div class="space-y-3">
+{{-- Des images en cours d'optimisation (file d'attente) : le panneau se redessine jusqu'à ce que leurs vignettes soient là. --}}
+<div class="space-y-3" @if ($this->hasOptimizingMedia) wire:poll.4s @endif>
     {{--
         Comme l'aide d'un champ Filament : un « ? » (lien Filament, couleur info) juste après le titre, son libellé en
         infobulle — ou, avec `helpFullTitle`, le libellé en toutes lettres au bout de la ligne.

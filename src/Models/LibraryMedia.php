@@ -8,6 +8,8 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Spatie\Image\Enums\CropPosition;
+use Spatie\MediaLibrary\Conversions\Conversion;
+use Spatie\MediaLibrary\Conversions\ConversionCollection;
 use Spatie\MediaLibrary\Conversions\FileManipulator;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
@@ -266,8 +268,13 @@ class LibraryMedia extends Media
         // La taille, gardée dans les propriétés au passage : thumbCrop() la lit là.
         $this->dimensions();
 
+        // Tout de suite, même quand les conversions passent par la file d'attente : on vient de choisir le cadrage, la
+        // vignette doit le montrer à la réponse.
         if ($this->isImage() && $this->hasGeneratedConversion('thumb')) {
-            app(FileManipulator::class)->createDerivedFiles($this, ['thumb']);
+            app(FileManipulator::class)->performConversions(
+                ConversionCollection::createForMedia($this)->filter(fn (Conversion $conversion): bool => $conversion->getName() === 'thumb'),
+                $this,
+            );
         }
     }
 
@@ -316,6 +323,59 @@ class LibraryMedia extends Media
         return $query->images()->where(fn (Builder $q): Builder => $q
             ->whereNull('custom_properties->origin')
             ->orWhereNotIn('custom_properties->origin', ['youtube', 'external_image']));
+    }
+
+    /** Les conversions d'une image : la vignette et les tailles d'affichage (voir Orchestration::registerMediaConversions()). */
+    public const CONVERSIONS = ['thumb', 'medium', 'large'];
+
+    /**
+     * Au-delà, une image dont les conversions manquent n'est plus « en cours d'optimisation » : leur fabrication a
+     * échoué (fichier illisible, file d'attente arrêtée). Elle s'affiche par son original, sans faire patienter.
+     */
+    public const OPTIMIZING_MINUTES = 30;
+
+    /**
+     * Une image dont la vignette ou une taille d'affichage n'est pas encore fabriquée : les conversions passent par la
+     * file d'attente (`filament-orchestrator.library.queue_conversions`), l'image s'affiche en attendant par son
+     * original. Une vidéo n'en a aucune : elle n'est jamais en cours d'optimisation.
+     */
+    public function isOptimizing(): bool
+    {
+        if (! $this->isImage() || $this->created_at === null || $this->created_at->lt(now()->subMinutes(self::OPTIMIZING_MINUTES))) {
+            return false;
+        }
+
+        foreach (self::CONVERSIONS as $conversion) {
+            if (! $this->hasGeneratedConversion($conversion)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Les images en cours d'optimisation (voir isOptimizing()), au plus près en SQL : récentes, images, sans leurs
+     * trois conversions.
+     */
+    public function scopeOptimizing(Builder $query): Builder
+    {
+        return $query->images()
+            ->where('created_at', '>=', now()->subMinutes(self::OPTIMIZING_MINUTES))
+            ->where(function (Builder $query): void {
+                foreach (self::CONVERSIONS as $conversion) {
+                    $query->orWhereNull("generated_conversions->{$conversion}")
+                        ->orWhere("generated_conversions->{$conversion}", false);
+                }
+            });
+    }
+
+    /** Le nom du fichier sur l'appareil de qui l'a chargé ; pour un média plus ancien, celui que medialibrary en a tiré. */
+    public function originalName(): string
+    {
+        $name = $this->getCustomProperty('original_name');
+
+        return is_string($name) && $name !== '' ? $name : (string) $this->file_name;
     }
 
     /** La vignette quand elle existe (sinon l'original, le temps qu'elle soit générée). */

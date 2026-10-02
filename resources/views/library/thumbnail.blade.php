@@ -233,6 +233,23 @@
         </div>
     @endif
 
+    {{--
+        Une image dont la vignette et les tailles d'affichage sont encore en fabrication (file d'attente) : elle se montre
+        par son original, et le dit. La grille se redessine d'elle-même jusqu'à ce qu'elles soient là.
+    --}}
+    @if ($media->isOptimizing())
+        <span
+            data-library-optimizing
+            x-tooltip="{ content: 'Optimisation en cours : la vignette et les tailles d’affichage arrivent dans un instant.', theme: $store.theme }"
+            class="{{ $chip }} pointer-events-auto absolute left-1/2 -translate-x-1/2 {{ $small ? 'top-1.5 p-1' : 'top-2 px-2 py-1 text-[11px] font-medium' }}"
+        >
+            <x-filament::loading-indicator class="{{ $icon }}" />
+            @unless ($small)
+                <span>Optimisation…</span>
+            @endunless
+        </span>
+    @endif
+
     {{-- Le crayon (repère) puis la poubelle (bouton), en colonne dans le coin. --}}
     <div class="pointer-events-none absolute flex flex-col gap-1 {{ $small ? 'right-1.5 top-1.5' : 'right-2 top-2' }}">
         {{-- Sans le droit de modifier, la fiche s'ouvre en lecture : un œil plutôt qu'un crayon. --}}

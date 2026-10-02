@@ -36,4 +36,19 @@
         draggable="false"
         class="h-20 w-20 rounded-lg object-cover"
     />
+    {{--
+        Vignette encore en fabrication (file d'attente) : l'original s'affiche en attendant, le panneau se redessine. Au
+        centre : les coins portent déjà l'étoile, la place, le cadrage et le bouton pour retirer.
+    --}}
+    @if ($media->isOptimizing())
+        <span
+            data-library-optimizing
+            title="Optimisation en cours"
+            class="pointer-events-none absolute inset-0 flex items-center justify-center"
+        >
+            <span class="flex items-center rounded-full bg-black/55 p-1 text-white shadow backdrop-blur-sm">
+                <x-filament::loading-indicator class="h-3.5 w-3.5" />
+            </span>
+        </span>
+    @endif
 @endif

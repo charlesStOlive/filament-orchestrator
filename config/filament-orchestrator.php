@@ -41,7 +41,9 @@ return [
 
         /*
          * Thumbnails are generated during the upload by default: a queued
-         * conversion never runs when no queue worker is listening.
+         * conversion never runs when no queue worker is listening. Queued,
+         * an image shows as "being optimized" until its conversions exist
+         * (LibraryMedia::isOptimizing()).
          */
         'queue_conversions' => false,
 
