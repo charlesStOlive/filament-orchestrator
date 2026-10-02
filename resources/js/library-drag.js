@@ -83,3 +83,61 @@ window.libraryHoldScroll = (top, ms = 2500) => {
 
     hold()
 }
+
+/*
+ * Le panneau d'images d'une période se réordonne au glisser (x-sortable de Filament) ; la même vignette se glisse aussi
+ * vers le texte, pour y écrire sa référence. Hors du panneau, SortableJS continuerait de la ranger — en bout de rangée
+ * dès qu'on passe à droite ou sous la dernière — et le dépôt dans le texte enregistrerait ce nouvel ordre.
+ *
+ * Le panneau ne se range donc que tant que le pointeur est dans le panneau (`onMove`), et un dépôt ailleurs remet
+ * l'ordre d'avant le glisser, sans rien enregistrer : la vue lit `libraryDragInside` au dépôt.
+ */
+/*
+ * Remet les vignettes dans cet ordre, à leur place : avant ce qui les suit dans le panneau (la case « + »). Pas
+ * `sortable.sort()`, qui les recolle à la fin, après elle.
+ */
+const restoreOrder = (list, ids) => {
+    const items = [...list.querySelectorAll(':scope > [x-sortable-item]')]
+    const byId = new Map(items.map((item) => [item.getAttribute('x-sortable-item'), item]))
+    const anchor = [...list.children].find((child) => !child.hasAttribute('x-sortable-item')
+        && items[0]?.compareDocumentPosition(child) & Node.DOCUMENT_POSITION_FOLLOWING) ?? null
+
+    ids.forEach((id) => byId.has(id) && list.insertBefore(byId.get(id), anchor))
+}
+
+window.libraryPanelSortable = (list) => {
+    const sortable = list?.sortable
+
+    if (!sortable || list.libraryPanelSortable) {
+        return
+    }
+
+    list.libraryPanelSortable = true
+
+    let order = null
+    const track = (event) => {
+        list.libraryDragInside = list.contains(event.target)
+    }
+
+    sortable.option('onMove', (event, originalEvent) => !originalEvent || list.contains(originalEvent.target))
+
+    list.addEventListener('start', () => {
+        order = sortable.toArray()
+        list.libraryDragInside = true
+        document.addEventListener('dragover', track, true)
+    })
+
+    // Écouté après le `x-on:end` de la vue (déclaré plus tôt), qui a déjà lu `libraryDragInside`.
+    list.addEventListener('end', () => {
+        document.removeEventListener('dragover', track, true)
+
+        if (!list.libraryDragInside && order) {
+            const before = order
+
+            // Après le onEnd de Filament, qui replace la vignette à l'index où SortableJS l'a laissée.
+            setTimeout(() => restoreOrder(list, before))
+        }
+
+        order = null
+    })
+}
