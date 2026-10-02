@@ -189,6 +189,16 @@ trier, filtrer et grouper.
   cadrage (`setFocus()`), elle, reste immédiate.
 - **Libellés** : un tag technique (`day:3f9c…`) s'affiche par le
   `LibraryTagLabeler` de l'application (« J2 · Arrivée à Lisbonne »).
+- **Dates d'un tag** : un `Library\Contracts\LibraryTagDates` de l'application
+  (`filament-orchestrator.library.tag_dates`) dit quelles dates couvre un tag
+  (`['from' => 'Y-m-d', 'until' => 'Y-m-d']`, ou null). Ouverte au service de
+  tags qui en ont (`focusTags`), la bibliothèque porte dans son bandeau
+  « En cours : … » un bouton « Filtrer du … au … » qui pose le filtre « Date de
+  prise de vue » sur ces dates (de la première à la dernière, s'il y a plusieurs
+  tags), ou le retire (`MediaLibraryTable::toggleFocusDates()`). Posé ainsi, il
+  compte comme un filtre du contexte : le contexte suivant du volet le retire,
+  s'il n'a pas été retouché. Sans fournisseur, ou pour un tag qu'aucun ne
+  reconnaît, pas de bouton : rien ne change.
 
 ### Ordre, en-tête et date de repli
 

@@ -60,6 +60,13 @@ return [
         'labelers' => [],
 
         /*
+         * Classes implementing Library\Contracts\LibraryTagDates. They give the
+         * dates a tag covers (e.g. those of a day): opened for that tag, the
+         * library offers to filter itself on them. None: no button.
+         */
+        'tag_dates' => [],
+
+        /*
          * Classes extending Library\LibraryAction. Each one adds an action to the
          * selection menu of the library (or, with shortcut(), an always visible
          * toolbar button), and can mark images with an icon.

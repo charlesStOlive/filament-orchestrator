@@ -12,6 +12,7 @@ use CharlesStOlive\FilamentOrchestrator\Library\LibraryImages;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryIngestor;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryPermissions;
 use CharlesStOlive\FilamentOrchestrator\Library\MediaMetadata;
+use CharlesStOlive\FilamentOrchestrator\Library\TagDates;
 use CharlesStOlive\FilamentOrchestrator\Library\TagLabels;
 use CharlesStOlive\FilamentOrchestrator\Library\YoutubeUrl;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
@@ -199,7 +200,7 @@ class MediaLibraryTable extends TableComponent
 
         // Ce que l'on a calculé des anciens tags est périmé, la table aussi : construite au début de la requête, elle a
         // les filtres, libellés (« Seulement : … », « Ajouter à : … ») et actions de l'ancienne journée.
-        unset($this->libraryContext, $this->focusLabel);
+        unset($this->libraryContext, $this->focusLabel, $this->focusDates);
         $this->bootedInteractsWithTable();
 
         // Un filtre sans état, Filament l'applique sans l'indiquer : « Seulement : … », apparu avec la journée, part inactif.
@@ -370,7 +371,11 @@ class MediaLibraryTable extends TableComponent
             // visible quand la grille défile (voir la vue).
             ->header(fn (): ?View => $this->focusTags === []
                 ? null
-                : view('filament-orchestrator::library.focus-banner', ['label' => $this->focusLabel]))
+                : view('filament-orchestrator::library.focus-banner', [
+                    'label' => $this->focusLabel,
+                    'dates' => $this->focusDates,
+                    'filtered' => $this->filtersOnFocusDates(),
+                ]))
             ->contentGrid(fn (): array => self::SIZES[$this->currentSize()]['grid'])
             ->poll(fn (): ?string => $this->hasOptimizingMedia ? '4s' : null)
             ->defaultSort('taken_at')
@@ -1094,6 +1099,51 @@ class MediaLibraryTable extends TableComponent
                 ->toggle()
                 ->query(fn (Builder $query): Builder => $query->withAnyTags($this->focusTags, $this->orchestration->libraryTagType())),
         ];
+    }
+
+    /**
+     * Les dates que couvre ce au service de quoi la bibliothèque est ouverte (celles de la journée), d'après les
+     * LibraryTagDates de l'application ; null quand elle n'en connaît pas — aucun bouton n'est alors proposé.
+     *
+     * @return array{from: string, until: string}|null
+     */
+    #[Computed]
+    public function focusDates(): ?array
+    {
+        return $this->focusTags === [] ? null : app(TagDates::class)->range($this->focusTags, $this->orchestration);
+    }
+
+    /** Le filtre « Date de prise de vue » est-il exactement sur les dates de la journée ? */
+    public function filtersOnFocusDates(): bool
+    {
+        $dates = $this->focusDates;
+        $filter = $this->tableFilters['taken_at'] ?? [];
+
+        return $dates !== null && ($filter['from'] ?? null) === $dates['from'] && ($filter['until'] ?? null) === $dates['until'];
+    }
+
+    /**
+     * Le bouton du bandeau : pose le filtre « Date de prise de vue » sur les dates de la journée — ou le retire, s'il
+     * y est déjà. Posé ainsi, il compte comme un filtre du contexte : la journée suivante du volet le retire, s'il n'a
+     * pas été retouché à la main (voir followSidePaneContext()).
+     */
+    public function toggleFocusDates(): void
+    {
+        $dates = $this->focusDates;
+
+        if ($dates === null) {
+            return;
+        }
+
+        if ($this->filtersOnFocusDates()) {
+            $this->tableFilters['taken_at'] = self::CONTEXT_FILTERS_OFF['taken_at'];
+            unset($this->contextFilters['taken_at']);
+        } else {
+            $this->tableFilters['taken_at'] = $dates;
+            $this->contextFilters['taken_at'] = $dates;
+        }
+
+        $this->updatedTableFilters();
     }
 
     /** Le nom de ce au service de quoi la bibliothèque est ouverte (la journée), pour l'affichage. */
