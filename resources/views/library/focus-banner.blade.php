@@ -3,8 +3,10 @@
     page le lui dit à chaque changement. C'est l'en-tête de la table (Table::header), donc dans le bloc qui reste
     visible quand la grille défile, avec les filtres et les boutons.
 
-    Quand l'application sait quelles dates elle couvre (LibraryTagDates), un bouton filtre la bibliothèque sur ces dates
-    de prise de vue — ou retire ce filtre, s'il y est déjà.
+    Ses boutons sont des raccourcis vers les filtres communs (voir MediaLibraryTable::toggleFocusTags() et
+    toggleFocusDates()) : « Seulement ses fichiers » ajoute ses tags au filtre Tags ; « Pris du … au … », quand
+    l'application connaît ses dates (LibraryTagDates), pose le filtre « Date de prise de vue ». Actif, un bouton est
+    plein ; un second clic retire ce qu'il a posé.
 --}}
 @php
     $format = fn (string $date): string => \Carbon\CarbonImmutable::parse($date)->format('d/m/Y');
@@ -21,17 +23,31 @@
         <span class="min-w-0 truncate">En cours : <strong class="font-semibold">{{ $label }}</strong></span>
     </span>
 
-    @if ($period !== null)
+    <span class="flex flex-wrap items-center gap-1.5">
         <x-filament::button
-            data-library-focus-dates
+            data-library-focus-only
             size="xs"
-            :color="$filtered ? 'primary' : 'gray'"
-            :outlined="! $filtered"
-            :icon="$filtered ? 'heroicon-m-x-mark' : 'heroicon-m-calendar-days'"
-            wire:click="toggleFocusDates"
-            :tooltip="$filtered ? 'Retirer le filtre des dates de prise de vue' : 'Ne montrer que les images prises '.$period"
+            :color="$onlyFocus ? 'primary' : 'gray'"
+            :outlined="! $onlyFocus"
+            :icon="$onlyFocus ? 'heroicon-m-check' : 'heroicon-m-funnel'"
+            wire:click="toggleFocusTags"
+            :tooltip="$onlyFocus ? 'Retirer ce filtre' : 'Ne montrer que ses fichiers, en plus des autres filtres'"
         >
-            {{ $filtered ? 'Dates : '.$period : 'Filtrer '.$period }}
+            Seulement ses fichiers
         </x-filament::button>
-    @endif
+
+        @if ($period !== null)
+            <x-filament::button
+                data-library-focus-dates
+                size="xs"
+                :color="$onDates ? 'primary' : 'gray'"
+                :outlined="! $onDates"
+                :icon="$onDates ? 'heroicon-m-check' : 'heroicon-m-calendar-days'"
+                wire:click="toggleFocusDates"
+                :tooltip="$onDates ? 'Retirer ce filtre' : 'Ne montrer que les fichiers pris '.$period"
+            >
+                Pris {{ $period }}
+            </x-filament::button>
+        @endif
+    </span>
 </div>

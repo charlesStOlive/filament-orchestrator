@@ -189,16 +189,25 @@ trier, filtrer et grouper.
   cadrage (`setFocus()`), elle, reste immédiate.
 - **Libellés** : un tag technique (`day:3f9c…`) s'affiche par le
   `LibraryTagLabeler` de l'application (« J2 · Arrivée à Lisbonne »).
-- **Dates d'un tag** : un `Library\Contracts\LibraryTagDates` de l'application
-  (`filament-orchestrator.library.tag_dates`) dit quelles dates couvre un tag
-  (`['from' => 'Y-m-d', 'until' => 'Y-m-d']`, ou null). Ouverte au service de
-  tags qui en ont (`focusTags`), la bibliothèque porte dans son bandeau
-  « En cours : … » un bouton « Filtrer du … au … » qui pose le filtre « Date de
-  prise de vue » sur ces dates (de la première à la dernière, s'il y a plusieurs
-  tags), ou le retire (`MediaLibraryTable::toggleFocusDates()`). Posé ainsi, il
-  compte comme un filtre du contexte : le contexte suivant du volet le retire,
-  s'il n'a pas été retouché. Sans fournisseur, ou pour un tag qu'aucun ne
-  reconnaît, pas de bouton : rien ne change.
+- **Barre « En cours : … »** : ouverte au service de tags (`focusTags`), la
+  bibliothèque porte dans son bandeau des raccourcis vers les filtres communs —
+  il n'y a plus de filtre propre au contexte dans la fenêtre de filtres :
+  - « Seulement ses fichiers » (`toggleFocusTags()`) **ajoute** ces tags au
+    filtre « Tags », sans toucher à ceux déjà cochés (ouverte avec
+    `filterTags(['croquis'])`, on voit alors les croquis de la journée) ; le
+    filtre « Tags » garde les images qui ont **tous** les tags cochés ;
+  - « Pris du … au … » (`toggleFocusDates()`) pose le filtre « Date de prise de
+    vue » sur les dates des tags. Elles viennent d'un
+    `Library\Contracts\LibraryTagDates` de l'application
+    (`filament-orchestrator.library.tag_dates`), qui dit quelles dates couvre un
+    tag (`['from' => 'Y-m-d', 'until' => 'Y-m-d']`, ou null ; de la première à
+    la dernière s'il y a plusieurs tags). Sans fournisseur, ou pour un tag
+    qu'aucun ne reconnaît, pas de bouton.
+
+  Un bouton est actif tant que son filtre contient ce qu'il a posé ; un second
+  clic ne retire que cela. Dans le volet, un bouton actif suit le contexte
+  suivant (le tag et les dates de la nouvelle journée) ; un filtre retouché à la
+  main n'est plus celui du bouton et reste.
 
 ### Ordre, en-tête et date de repli
 

@@ -184,8 +184,8 @@ class MediaLibraryTable extends TableComponent
 
     /**
      * La page annonce sur quoi elle travaille (les tags de la journée ouverte) :
-     * la bibliothèque du volet s'y règle, à la place — « Ajouter à », le filtre
-     * « Seulement » et l'étiquetage des envois suivent la journée.
+     * la bibliothèque du volet s'y règle, à la place — « Ajouter à », les boutons de la barre (« Seulement ses
+     * fichiers », les dates) et l'étiquetage des envois suivent la journée.
      *
      * @param  array<string, mixed>  $context
      */
@@ -196,24 +196,27 @@ class MediaLibraryTable extends TableComponent
             return;
         }
 
+        // Les boutons de la barre actifs pour l'ancienne journée : on retire ce qu'ils ont posé, pour le reposer pour la
+        // nouvelle (un bouton actif suit la journée). Un filtre retouché à la main n'est plus celui d'un bouton : il reste.
+        $focusOnly = $this->filtersOnFocusTags();
+        $focusDates = $this->filtersOnFocusDates();
+        $filters = $this->withoutFocusTags($this->tableFilters ?? []);
+
+        if ($focusDates) {
+            $filters['taken_at'] = self::CONTEXT_FILTERS_OFF['taken_at'];
+        }
+
         $this->focusTags = array_values(array_filter((array) ($context['tags'] ?? []), 'is_string'));
 
         // Ce que l'on a calculé des anciens tags est périmé, la table aussi : construite au début de la requête, elle a
-        // les filtres, libellés (« Seulement : … », « Ajouter à : … ») et actions de l'ancienne journée.
+        // les libellés (« Ajouter à : … ») et actions de l'ancienne journée.
         unset($this->libraryContext, $this->focusLabel, $this->focusDates);
         $this->bootedInteractsWithTable();
-
-        // Un filtre sans état, Filament l'applique sans l'indiquer : « Seulement : … », apparu avec la journée, part inactif.
-        if ($this->focusTags !== []) {
-            $this->tableFilters['in_focus'] ??= ['isActive' => false];
-            $this->tableDeferredFilters['in_focus'] ??= ['isActive' => false];
-        }
 
         // Un contexte qui demande un filtre (les croquis, pour en choisir un ; les dates d'une période en création) le
         // pose. Le contexte suivant, s'il n'en demande plus, le retire — s'il est toujours tel qu'on l'a posé : un filtre
         // choisi ou retouché à la main reste.
         $requested = $this->requestedFilters($context);
-        $filters = $this->tableFilters ?? [];
 
         foreach ($this->contextFilters as $name => $state) {
             if (! array_key_exists($name, $requested) && ($filters[$name] ?? null) == $state) {
@@ -223,6 +226,14 @@ class MediaLibraryTable extends TableComponent
 
         $filters = [...$filters, ...$requested];
         $this->contextFilters = $requested;
+
+        if ($focusOnly) {
+            $filters = $this->withFocusTags($filters);
+        }
+
+        if ($focusDates && $this->focusDates !== null) {
+            $filters['taken_at'] = $this->focusDates;
+        }
 
         if ($filters != ($this->tableFilters ?? [])) {
             $this->tableFilters = $filters;
@@ -374,7 +385,8 @@ class MediaLibraryTable extends TableComponent
                 : view('filament-orchestrator::library.focus-banner', [
                     'label' => $this->focusLabel,
                     'dates' => $this->focusDates,
-                    'filtered' => $this->filtersOnFocusDates(),
+                    'onlyFocus' => $this->filtersOnFocusTags(),
+                    'onDates' => $this->filtersOnFocusDates(),
                 ]))
             ->contentGrid(fn (): array => self::SIZES[$this->currentSize()]['grid'])
             ->poll(fn (): ?string => $this->hasOptimizingMedia ? '4s' : null)
@@ -433,8 +445,6 @@ class MediaLibraryTable extends TableComponent
     private function filters(): array
     {
         return [
-            ...$this->focusFilters(),
-
             // Images, vidéos, YouTube ou images externes : reconnus à leur type de fichier et à leur origine.
             SelectFilter::make('kind')
                 ->label('Type')
@@ -481,8 +491,10 @@ class MediaLibraryTable extends TableComponent
                 ->label('Tags')
                 ->multiple()
                 ->options(fn (): array => $this->tagOptions)
+                // Tous les tags cochés, et non l'un d'eux : ajouter un tag restreint la liste (les croquis de J2 = tags
+                // « croquis » et J2). C'est ce que fait le bouton « Seulement » de la barre (toggleFocusTags()).
                 ->query(fn (Builder $query, array $data): Builder => filled($data['values'] ?? null)
-                    ? $query->withAnyTags($data['values'], $this->orchestration->libraryTagType())
+                    ? $query->withAllTags($data['values'], $this->orchestration->libraryTagType())
                     : $query)
                 ->indicateUsing(fn (array $data): array => array_map(
                     fn (string $tag): string => 'Tag : '.$this->tagLabel($tag),
@@ -1086,21 +1098,6 @@ class MediaLibraryTable extends TableComponent
         ];
     }
 
-    /** @return array<int, Filter> */
-    private function focusFilters(): array
-    {
-        if ($this->focusTags === []) {
-            return [];
-        }
-
-        return [
-            Filter::make('in_focus')
-                ->label('Seulement : '.$this->focusLabel)
-                ->toggle()
-                ->query(fn (Builder $query): Builder => $query->withAnyTags($this->focusTags, $this->orchestration->libraryTagType())),
-        ];
-    }
-
     /**
      * Les dates que couvre ce au service de quoi la bibliothèque est ouverte (celles de la journée), d'après les
      * LibraryTagDates de l'application ; null quand elle n'en connaît pas — aucun bouton n'est alors proposé.
@@ -1113,6 +1110,66 @@ class MediaLibraryTable extends TableComponent
         return $this->focusTags === [] ? null : app(TagDates::class)->range($this->focusTags, $this->orchestration);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Les boutons de la barre « En cours : … »
+    |--------------------------------------------------------------------------
+    |
+    | Ouverte au service d'une journée, la bibliothèque porte dans sa barre des raccourcis vers les filtres communs :
+    | « Seulement » ajoute ses tags au filtre Tags, « Ses dates » pose le filtre « Date de prise de vue ». Ils ne font que
+    | remplir ces filtres, qu'on voit et retouche comme les autres ; un bouton est actif tant que son filtre est tel qu'il
+    | l'a posé, et un second clic le retire.
+    */
+
+    /** @return array<int, string> Les tags cochés dans le filtre Tags. */
+    private function filteredTags(array $filters): array
+    {
+        return array_values(array_filter((array) ($filters['tags']['values'] ?? []), 'is_string'));
+    }
+
+    /** Les tags de la journée sont-ils tous dans le filtre Tags ? */
+    public function filtersOnFocusTags(): bool
+    {
+        return $this->focusTags !== [] && array_diff($this->focusTags, $this->filteredTags($this->tableFilters ?? [])) === [];
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function withFocusTags(array $filters): array
+    {
+        $filters['tags'] = ['values' => array_values(array_unique([...$this->filteredTags($filters), ...$this->focusTags]))];
+
+        return $filters;
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function withoutFocusTags(array $filters): array
+    {
+        if (! $this->filtersOnFocusTags()) {
+            return $filters;
+        }
+
+        $filters['tags'] = ['values' => array_values(array_diff($this->filteredTags($filters), $this->focusTags))];
+
+        return $filters;
+    }
+
+    /**
+     * Le bouton « Seulement » : ajoute les tags de la journée au filtre Tags — sans toucher à ceux qui y sont déjà, les
+     * croquis par exemple : on voit alors les croquis de la journée —, ou les en retire.
+     */
+    public function toggleFocusTags(): void
+    {
+        if ($this->focusTags === []) {
+            return;
+        }
+
+        $this->tableFilters = $this->filtersOnFocusTags()
+            ? $this->withoutFocusTags($this->tableFilters ?? [])
+            : $this->withFocusTags($this->tableFilters ?? []);
+
+        $this->updatedTableFilters();
+    }
+
     /** Le filtre « Date de prise de vue » est-il exactement sur les dates de la journée ? */
     public function filtersOnFocusDates(): bool
     {
@@ -1122,11 +1179,7 @@ class MediaLibraryTable extends TableComponent
         return $dates !== null && ($filter['from'] ?? null) === $dates['from'] && ($filter['until'] ?? null) === $dates['until'];
     }
 
-    /**
-     * Le bouton du bandeau : pose le filtre « Date de prise de vue » sur les dates de la journée — ou le retire, s'il
-     * y est déjà. Posé ainsi, il compte comme un filtre du contexte : la journée suivante du volet le retire, s'il n'a
-     * pas été retouché à la main (voir followSidePaneContext()).
-     */
+    /** Le bouton « Ses dates » : pose le filtre « Date de prise de vue » sur les dates de la journée, ou le retire. */
     public function toggleFocusDates(): void
     {
         $dates = $this->focusDates;
@@ -1135,13 +1188,7 @@ class MediaLibraryTable extends TableComponent
             return;
         }
 
-        if ($this->filtersOnFocusDates()) {
-            $this->tableFilters['taken_at'] = self::CONTEXT_FILTERS_OFF['taken_at'];
-            unset($this->contextFilters['taken_at']);
-        } else {
-            $this->tableFilters['taken_at'] = $dates;
-            $this->contextFilters['taken_at'] = $dates;
-        }
+        $this->tableFilters['taken_at'] = $this->filtersOnFocusDates() ? self::CONTEXT_FILTERS_OFF['taken_at'] : $dates;
 
         $this->updatedTableFilters();
     }
