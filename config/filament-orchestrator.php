@@ -67,6 +67,14 @@ return [
         'tag_dates' => [],
 
         /*
+         * Classes implementing Library\Contracts\LibraryDeletionGuard. Each one
+         * can keep a file from being deleted (e.g. it is shown by a published
+         * version): the library says why instead of deleting it, and the model
+         * refuses the deletion whatever asks for it (LibraryMedia::deleting).
+         */
+        'deletion_guards' => [],
+
+        /*
          * Classes extending Library\LibraryAction. Each one adds an action to the
          * selection menu of the library (or, with shortcut(), an always visible
          * toolbar button), and can mark images with an icon.
@@ -78,6 +86,16 @@ return [
          * selection menu. True makes it an always visible "Add" toolbar button.
          */
         'add_to_focus_shortcut' => false,
+    ],
+
+    /*
+     * The public player (OrchestrationPlayer) shows the orchestration as it is,
+     * unless it is given a `version`: it then asks this class (implementing
+     * Contracts\PlayerStateResolver) for the state frozen under that version.
+     * Null: no version, the player only shows the live orchestration.
+     */
+    'player' => [
+        'state_resolver' => null,
     ],
 
     /*

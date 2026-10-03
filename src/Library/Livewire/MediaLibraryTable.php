@@ -662,15 +662,32 @@ class MediaLibraryTable extends TableComponent
             ->extraAttributes(['class' => 'hidden'])
             ->authorize(fn (): bool => $this->allows('delete'))
             ->requiresConfirmation()
-            ->modalHeading(fn (LibraryMedia $record): string => $record->isVideo() ? 'Supprimer cette vidéo ?' : 'Supprimer cette image ?')
+            ->modalHeading(fn (LibraryMedia $record): string => $this->deletionHeading($record))
             ->modalDescription(fn (LibraryMedia $record): string => $this->deletionDescription($record))
             ->modalSubmitActionLabel('Supprimer')
+            ->modalSubmitAction(fn (Action $action, LibraryMedia $record): Action|false => $record->keptReason() === null ? $action : false)
             ->action(fn (LibraryMedia $record) => $this->deleteMedia($record));
+    }
+
+    /** « Supprimer cette image ? », ou, quand une garde la retient (une version publiée la montre…), qu'elle reste. */
+    private function deletionHeading(LibraryMedia $record): string
+    {
+        if ($record->keptReason() !== null) {
+            return $record->isVideo() ? 'Cette vidéo ne peut pas être supprimée' : 'Cette image ne peut pas être supprimée';
+        }
+
+        return $record->isVideo() ? 'Supprimer cette vidéo ?' : 'Supprimer cette image ?';
     }
 
     /** Ce que la suppression emporte : le fichier, et sa place dans chacune des périodes où il est rangé. */
     private function deletionDescription(LibraryMedia $record): string
     {
+        $kept = $record->keptReason();
+
+        if ($kept !== null) {
+            return $kept;
+        }
+
         $usedBy = $this->tagLabels($record);
 
         return 'Elle disparaît de la bibliothèque'
@@ -681,6 +698,14 @@ class MediaLibraryTable extends TableComponent
     private function deleteMedia(LibraryMedia $record): void
     {
         $video = $record->isVideo();
+        $kept = $record->keptReason();
+
+        if ($kept !== null) {
+            Notification::make()->danger()->title($video ? 'Vidéo conservée' : 'Image conservée')->body($kept)->send();
+
+            return;
+        }
+
         $record->delete();
 
         Notification::make()->success()->title($video ? 'Vidéo supprimée' : 'Image supprimée')->send();
@@ -700,9 +725,10 @@ class MediaLibraryTable extends TableComponent
             ->outlined()
             ->authorize(fn (): bool => $this->allows('delete'))
             ->requiresConfirmation()
-            ->modalHeading(fn (LibraryMedia $record): string => $record->isVideo() ? 'Supprimer cette vidéo ?' : 'Supprimer cette image ?')
+            ->modalHeading(fn (LibraryMedia $record): string => $this->deletionHeading($record))
             ->modalDescription(fn (LibraryMedia $record): string => $this->deletionDescription($record))
             ->modalSubmitActionLabel('Supprimer')
+            ->modalSubmitAction(fn (Action $action, LibraryMedia $record): Action|false => $record->keptReason() === null ? $action : false)
             // La fenêtre d'édition n'a plus de fichier à éditer : elle se ferme avec lui.
             ->cancelParentActions()
             ->action(fn (LibraryMedia $record) => $this->deleteMedia($record));
@@ -816,6 +842,14 @@ class MediaLibraryTable extends TableComponent
                     $newVideoId = YoutubeUrl::id($data['youtube_url'] ?? null);
 
                     if ($newVideoId !== null && $newVideoId !== $record->youtubeId()) {
+                        // Remplacer, c'est supprimer l'ancienne fiche : impossible si une garde la retient.
+                        if (($kept = $record->keptReason()) !== null) {
+                            Notification::make()->danger()->title('Vidéo conservée')
+                                ->body($kept.' Ajoutez la nouvelle vidéo à côté plutôt que de la remplacer.')->send();
+
+                            return;
+                        }
+
                         $fresh = app(LibraryIngestor::class)->ingestYoutube($this->orchestration, $newVideoId);
 
                         foreach (['caption', 'alt'] as $property) {
@@ -1241,11 +1275,22 @@ class MediaLibraryTable extends TableComponent
             ->color('danger')
             ->requiresConfirmation()
             ->modalHeading('Supprimer les images cochées ?')
-            ->modalDescription('Elles disparaissent de la bibliothèque et de toutes les journées où elles s’affichent. Cette action est définitive.')
+            ->modalDescription('Elles disparaissent de la bibliothèque et de toutes les journées où elles s’affichent. Cette action est définitive. Celles qu’une version publiée montre restent.')
             ->action(function (Collection $selectedRecords): void {
-                $selectedRecords->each(fn (LibraryMedia $media) => $media->delete());
+                // Celles qu'une garde retient restent ; les autres partent.
+                [$kept, $deletable] = $selectedRecords->partition(fn (LibraryMedia $media): bool => $media->keptReason() !== null);
 
-                Notification::make()->success()->title($selectedRecords->count().' image(s) supprimée(s)')->send();
+                $deletable->each(fn (LibraryMedia $media) => $media->delete());
+
+                if ($deletable->isNotEmpty()) {
+                    Notification::make()->success()->title($deletable->count().' image(s) supprimée(s)')->send();
+                }
+
+                if ($kept->isNotEmpty()) {
+                    Notification::make()->warning()->title($kept->count().' image(s) conservée(s)')
+                        ->body($kept->first()->keptReason())->send();
+                }
+
                 $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
             });
     }

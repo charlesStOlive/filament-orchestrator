@@ -209,6 +209,19 @@ trier, filtrer et grouper.
   suivant (le tag et les dates de la nouvelle journée) ; un filtre retouché à la
   main n'est plus celui du bouton et reste.
 
+### Fichiers qu'on ne peut pas supprimer
+
+Une application peut retenir un fichier de la bibliothèque — une image que
+montre une version publiée, par exemple — avec une
+`Library\Contracts\LibraryDeletionGuard`
+(`filament-orchestrator.library.deletion_guards`) : `reason($media)` rend
+pourquoi il doit rester, en une phrase, ou null. La bibliothèque le dit au lieu
+de supprimer (la poubelle n'a plus de bouton « Supprimer », la suppression
+groupée garde ces fichiers, un lien YouTube ne remplace pas une vidéo retenue),
+et `LibraryMedia` refuse la suppression d'où qu'elle vienne — y compris la
+suppression de l'orchestration, qui emporte ses fichiers — en levant
+`Library\MediaInUse`. `$media->keptReason()` interroge les gardes.
+
 ### Ordre, en-tête et date de repli
 
 - **Ordre d'un ensemble** : les images d'une journée se réordonnent par
@@ -446,6 +459,22 @@ ordonnables et éditables individuellement.
 ```blade
 <livewire:filament-orchestrator-player :orchestration="$orchestration" />
 ```
+
+Le lecteur montre l'orchestration telle qu'elle est. Tout ce qu'il affiche —
+le payload du moteur, et pour chaque scène sa scène, ses hotpoints et ses
+réglages — sort de `Services\PlayerStateBuilder::build()`, en données
+seulement. Une application qui publie des versions garde ce tableau, et le rend
+au lecteur sous une version :
+
+```blade
+<livewire:filament-orchestrator-player :orchestration="$orchestration" :version="$publication->id" />
+```
+
+Il le demande alors à la classe de `filament-orchestrator.player.state_resolver`
+(`Contracts\PlayerStateResolver::state($orchestration, $version)`), et répond
+404 si elle ne le connaît pas. Les contenus et les hotpoints peuvent changer ou
+disparaître : la version montrée n'en dépend plus. La scène elle-même (fond de
+carte, couches) reste lue en direct.
 
 ## Extension JavaScript
 

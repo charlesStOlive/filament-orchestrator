@@ -3,6 +3,8 @@
 namespace CharlesStOlive\FilamentOrchestrator\Models;
 
 use Carbon\CarbonImmutable;
+use CharlesStOlive\FilamentOrchestrator\Library\DeletionGuards;
+use CharlesStOlive\FilamentOrchestrator\Library\MediaInUse;
 use CharlesStOlive\FilamentOrchestrator\Library\VideoMetadataReader;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,6 +48,27 @@ class LibraryMedia extends Media
             'latitude' => 'float',
             'longitude' => 'float',
         ];
+    }
+
+    /**
+     * Un fichier qu'une garde retient (une version publiée le montre…) ne part pas, d'où que vienne la suppression :
+     * la bibliothèque, ou l'orchestration supprimée qui emporte ses fichiers.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (self $media): void {
+            $reason = app(DeletionGuards::class)->reason($media);
+
+            if ($reason !== null) {
+                throw new MediaInUse($media, $reason);
+            }
+        });
+    }
+
+    /** Pourquoi ce fichier doit rester (voir Library\Contracts\LibraryDeletionGuard), ou null s'il peut être supprimé. */
+    public function keptReason(): ?string
+    {
+        return app(DeletionGuards::class)->reason($this);
     }
 
     /**

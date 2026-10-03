@@ -2,6 +2,8 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Models;
 
+use CharlesStOlive\FilamentOrchestrator\Library\DeletionGuards;
+use CharlesStOlive\FilamentOrchestrator\Library\MediaInUse;
 use CharlesStOlive\FilamentOrchestrator\Registry\SchemaRegistry;
 use CharlesStOlive\FilamentOrchestrator\Schemas\OrchestratorSchema;
 use Illuminate\Database\Eloquent\Model;
@@ -102,6 +104,24 @@ class Orchestration extends Model implements HasMedia
     public function libraryMedia(): MorphMany
     {
         return $this->media()->where('collection_name', self::LIBRARY_COLLECTION);
+    }
+
+    /**
+     * Supprimer l'orchestration emporte ses fichiers, un à un (medialibrary). Si une garde en retient un (une version
+     * publiée le montre…), rien ne part : on le vérifie pour tous avant le premier, sinon ceux d'avant seraient déjà
+     * effacés quand le fichier retenu arrêterait la suppression (voir LibraryMedia).
+     */
+    public function delete(): ?bool
+    {
+        $guards = app(DeletionGuards::class);
+
+        foreach ($this->libraryMedia()->cursor() as $media) {
+            if ($media instanceof LibraryMedia && ($reason = $guards->reason($media)) !== null) {
+                throw new MediaInUse($media, $reason);
+            }
+        }
+
+        return parent::delete();
     }
 
     /** Type sous lequel sont rangés les tags de cette bibliothèque : un type par orchestration. */
