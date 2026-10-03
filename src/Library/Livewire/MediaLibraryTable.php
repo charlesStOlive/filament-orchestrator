@@ -471,7 +471,7 @@ class MediaLibraryTable extends TableComponent
             ])
             // Pas d'action de carte (`recordAction`) : un clic sur une carte la coche — ou la choisit, quand la
             // bibliothèque est ouverte pour un seul fichier — et c'est le crayon qui ouvre sa fiche (library/thumbnail).
-            ->recordActions([$this->editAction(), $this->deleteImageAction()])
+            ->recordActions([$this->editAction(), $this->deleteImageAction(), ...$this->pickOneActions()])
             ->selectable()
             ->toolbarActions([
                 ...$this->pickActions(),
@@ -505,6 +505,35 @@ class MediaLibraryTable extends TableComponent
             $this->pickMany => 'many',
             default => 'one',
         };
+    }
+
+    /**
+     * Ouverte pour choisir un seul fichier : le clic sur une carte (library/thumbnail) ouvre cette confirmation — l'image,
+     * son nom —, puis l'envoie à qui l'attend (voir pick()). Comme le crayon, le bouton de la rangée d'actions n'est pas
+     * affiché, mais il doit rester dans le DOM : Filament n'ouvre pas une action masquée.
+     *
+     * @return array<int, Action>
+     */
+    private function pickOneActions(): array
+    {
+        if ($this->pickMode() !== 'one') {
+            return [];
+        }
+
+        return [
+            Action::make('pickOne')
+                ->label('Choisir')
+                ->icon('heroicon-o-check-circle')
+                ->extraAttributes(['class' => 'hidden'])
+                ->requiresConfirmation()
+                ->color('primary')
+                ->modalIcon('heroicon-o-check-circle')
+                ->modalHeading(fn (LibraryMedia $record): string => $record->isPlayable() ? 'Choisir cette vidéo ?' : 'Choisir cette image ?')
+                ->modalDescription(fn (LibraryMedia $record): string => $record->name)
+                ->modalContent(fn (LibraryMedia $record): View => view('filament-orchestrator::library.pick-preview', ['media' => $record]))
+                ->modalSubmitActionLabel('Choisir')
+                ->action(fn (LibraryMedia $record) => $this->pick($record->getKey())),
+        ];
     }
 
     /**

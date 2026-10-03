@@ -154,7 +154,8 @@ trier, filtrer et grouper.
   rien dans le plugin ne le suppose.
 - **Choisir des fichiers** : `MediaLibraryAction::make()->pickFor($this->getId(), many: true)`
   ouvre la bibliothèque pour choisir, au profit de qui l'a ouverte. Un seul
-  fichier attendu, un clic sur une carte le choisit ; plusieurs, un clic coche,
+  fichier attendu, un clic sur une carte le propose (confirmation `pickOne`,
+  avec l'image) ; plusieurs, un clic coche,
   et « Insérer la sélection » les envoie. Rien ne s'y glisse. Les fichiers sont
   annoncés par l'événement `MediaLibraryTable::PICKED_EVENT` (`picker`,
   `media`) : à qui les attend de les prendre et de fermer la fenêtre (c'est ce

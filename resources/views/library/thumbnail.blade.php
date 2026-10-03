@@ -20,7 +20,8 @@
     rapport à la carte elle-même (`fi-ta-record`, qui est `relative`). Elle
     donne sa hauteur à la carte, avec un carré de la largeur du contenu.
 
-    Un clic sur la carte la coche (ou la décoche) ; ouverte pour choisir un seul fichier, il le choisit. Un clic n'est
+    Un clic sur la carte la coche (ou la décoche) ; ouverte pour choisir un seul fichier, il le choisit, après une
+    confirmation (action `pickOne` de MediaLibraryTable). Un clic n'est
     qu'un clic : si le pointeur a bougé entre l'appui et le relâché, c'est un glisser commencé, pas une sélection — on
     peut saisir une carte cochée sans la décocher. La fiche s'ouvre par le crayon, la suppression par la poubelle : de
     vrais boutons, qui ne cochent rien (`.stop`).
@@ -37,6 +38,11 @@
     mais une petite étiquette (son nom, ou son numéro dans la période), qui laisse voir où l'on vise.
 
     En petit format il n'y a pas de texte : tags et position se lisent en icônes.
+
+    Attention aux expressions Alpine de plusieurs instructions (`x-on:click`, `x-on:dragstart`) : Alpine en fait
+    `résultat = <expression>`, sauf si elle *commence* par `if (…)` (elle passe alors dans une fonction). Un commentaire
+    ou une ligne vide avant ce `if` la rend invalide, et le geste ne fait plus rien, sans bruit. Les commentaires vont
+    donc ici, ou après la première ligne.
 --}}
 <div
     class="group aspect-square w-full cursor-pointer {{ $draggable ? 'active:cursor-grabbing' : '' }}"
@@ -53,14 +59,13 @@
         y: $event.clientY,
         noGrab: $event.target.closest('[data-library-no-grab]') !== null,
     }"
-    x-on:click="
-        // Le pointeur a bougé depuis l'appui : un glisser (même avorté), pas un clic.
-        if (pressed && Math.hypot($event.clientX - pressed.x, $event.clientY - pressed.y) > 5) {
+    x-on:click="if (pressed && Math.hypot($event.clientX - pressed.x, $event.clientY - pressed.y) > 5) {
+            // Le pointeur a bougé depuis l'appui : un glisser (même avorté), pas un clic.
             return
         }
 
         @if ($pick === 'one')
-            $wire.pick({{ $key }})
+            $wire.mountTableAction('pickOne', '{{ $key }}')
         @else
             toggleSelectedRecord('{{ $key }}')
         @endif
@@ -68,9 +73,8 @@
     x-on:keydown.enter.self.prevent="pressed = null; $el.click()"
     x-on:keydown.space.self.prevent="pressed = null; $el.click()"
     @if ($draggable)
-    x-on:dragstart="
-        // Saisie par la zone de la case ou par un bouton : rien ne se glisse.
-        if (pressed?.noGrab) {
+    x-on:dragstart="if (pressed?.noGrab) {
+            // Saisie par la zone de la case ou par un bouton : rien ne se glisse.
             $event.preventDefault()
 
             return
