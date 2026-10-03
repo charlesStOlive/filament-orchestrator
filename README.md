@@ -119,6 +119,12 @@ sont ses **tags**. Un contenu ne possède donc pas d'images, il déclare les tag
 dont il affiche les images — `NodeDeclaration::library([...])` — et le payload
 lit la bibliothèque à l'affichage. Rien n'est copié.
 
+Un **point** peut de même proposer une image à son marqueur :
+`NodeDeclaration::markerImage(['cover:…'], ['day:…'])` — la première image du premier jeu de tags qui en a une
+(l'image de une, sinon la première photo). `Integrations\MapScenes\ScenePoints` la lit à l'affichage et la passe à
+`MapPayloadBuilder::point($point, image:)` de filament-map, seulement si le type du point montre une image
+(`GeoPointType::acceptsImage()`) : un type qui n'est qu'une forme l'ignore, sans erreur et sans requête.
+
 Chaque image porte sa date de prise de vue et sa position GPS (lues dans
 l'EXIF) dans de vraies colonnes de la table `media`, ce qui permet de les
 trier, filtrer et grouper.

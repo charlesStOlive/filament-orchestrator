@@ -2,6 +2,7 @@
 
 namespace CharlesStOlive\FilamentOrchestrator\Automations\Projection;
 
+use CharlesStOlive\FilamentOrchestrator\Integrations\MapScenes\ScenePoints;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryImages;
 use CharlesStOlive\FilamentOrchestrator\Models\OrchestratorNode;
 use CharlesStOlive\FilamentOrchestrator\Schemas\Definitions\NodeDefinition;
@@ -135,6 +136,21 @@ class NodeDeclaration
     public function library(array $tags): static
     {
         return $this->config([LibraryImages::NODE_CONFIG_KEY => array_values(array_unique($tags))]);
+    }
+
+    /**
+     * Ce point propose à son marqueur une image de la bibliothèque : la première portant ces tags, sinon la première
+     * du jeu suivant (par exemple l'image de une d'une étape, à défaut sa première photo). Comme library(), rien n'est
+     * copié : l'image est lue à l'affichage (Integrations\MapScenes\ScenePoints), et seulement si le type du point en
+     * montre une — les autres l'ignorent, sans erreur. Aucun jeu retire la proposition.
+     *
+     * @param  array<int, string>  ...$tagSets
+     */
+    public function markerImage(array ...$tagSets): static
+    {
+        $tagSets = array_values(array_filter(array_map(fn (array $tags): array => array_values(array_unique($tags)), $tagSets)));
+
+        return $this->config([ScenePoints::MARKER_IMAGE_CONFIG_KEY => $tagSets]);
     }
 
     /** @param array<string, mixed|Closure> $config */

@@ -54,6 +54,13 @@ L'ordre sert à présenter ou traiter les éléments de manière déterministe. 
 
 Ce champ contient les réglages spécifiques à cet élément dans ce parcours. Il ne modifie pas la ressource d'origine. Utilisez-le uniquement pour les options prévues par le schéma ou le lecteur.
 
+## L'apparence d'un hotpoint
+
+Un hotpoint garde l'apparence de son **type de point** (forme, icône, couleur). Le parcours peut la compléter sans créer un type par cas :
+
+- **sa couleur**, donnée au point par le parcours, l'emporte sur celle du type ;
+- **une image** de la bibliothèque du parcours (par exemple l'image de une de l'étape) peut lui être proposée. Elle n'apparaît, en mini-vignette, que si le type du point a pour contenu **Image** ; les autres types l'ignorent. Elle est relue à chaque affichage : changer l'image de une change le point, sans rien resynchroniser.
+
 ## Pourquoi un élément n'est-il pas proposé ?
 
 - son modèle ne correspond pas au rôle ;
