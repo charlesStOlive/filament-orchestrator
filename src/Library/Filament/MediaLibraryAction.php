@@ -15,6 +15,9 @@ use Filament\Support\Enums\Width;
  * S'utilise comme n'importe quelle action, sur une page d'édition ou ailleurs :
  *
  *     MediaLibraryAction::make()->record($this->record)
+ *
+ * Pour choisir des fichiers (un champ qui en attend un, ou plusieurs) : `->pickFor($this->getId(), many: true)`, et
+ * écouter MediaLibraryTable::PICKED_EVENT (voir TagImagesPanel).
  */
 class MediaLibraryAction extends Action
 {
@@ -23,6 +26,10 @@ class MediaLibraryAction extends Action
 
     /** @var array<int, string>|Closure */
     protected array|Closure $filterTags = [];
+
+    protected string|Closure|null $picker = null;
+
+    protected bool|Closure $pickMany = false;
 
     /**
      * Ouvre la bibliothèque « au service » de ces tags : les images qui les
@@ -64,6 +71,32 @@ class MediaLibraryAction extends Action
         return array_values((array) $this->evaluate($this->filterTags));
     }
 
+    /**
+     * Ouvre la bibliothèque pour y choisir des fichiers, au profit de `$picker` (un nom : celui du composant Livewire qui
+     * les attend, par exemple) : elle les annonce par MediaLibraryTable::PICKED_EVENT, avec ce nom, et c'est à lui de
+     * les prendre — et de fermer la fenêtre. Un seul fichier attendu, un clic sur une carte le choisit ; plusieurs
+     * (`$many`), un clic coche, et « Insérer la sélection » les envoie.
+     */
+    public function pickFor(string|Closure|null $picker, bool|Closure $many = false): static
+    {
+        $this->picker = $picker;
+        $this->pickMany = $many;
+
+        return $this;
+    }
+
+    public function getPicker(): ?string
+    {
+        $picker = $this->evaluate($this->picker);
+
+        return filled($picker) ? (string) $picker : null;
+    }
+
+    public function shouldPickMany(): bool
+    {
+        return (bool) $this->evaluate($this->pickMany);
+    }
+
     public static function getDefaultName(): ?string
     {
         return 'mediaLibrary';
@@ -85,7 +118,13 @@ class MediaLibraryAction extends Action
                 // Sans cadre ni retrait (macros de filament-ui) : la table occupe toute la fenêtre au lieu d'y
                 // flotter dans un encadré.
                 Section::make()->borderNone()->paddingNone()->schema([
-                    MediaLibraryTable::component($record, $this->getFocusTags(), filterTags: $this->getFilterTags()),
+                    MediaLibraryTable::component(
+                        $record,
+                        $this->getFocusTags(),
+                        filterTags: $this->getFilterTags(),
+                        picker: $this->getPicker(),
+                        pickMany: $this->shouldPickMany(),
+                    ),
                 ]),
             ]);
     }

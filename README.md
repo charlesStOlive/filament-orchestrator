@@ -146,7 +146,19 @@ trier, filtrer et grouper.
 - **Gérer** : `MediaLibraryAction` ouvre `MediaLibraryTable`, une grille de
   cartes avec filtres (date, tags, GPS, autour d'un point), groupements (date,
   zone), actions groupées de tag, et trois tailles de vignettes S / M / L (S : petits carrés à icônes ; le choix est gardé en session). Elle s'ajoute comme n'importe quelle
-  action : `MediaLibraryAction::make()->record($this->record)`.
+  action : `MediaLibraryAction::make()->record($this->record)`. Un clic sur une
+  carte la coche (la case, en haut à gauche, a une zone à elle : un clic à côté
+  coche aussi) ; le crayon ouvre sa fiche. Un clic n'est qu'un clic : le pointeur
+  qui a bougé depuis l'appui, c'est un glisser — saisir une carte cochée ne la
+  décoche pas. Aujourd'hui, seul l'éditeur de voyage de l'application s'en sert ;
+  rien dans le plugin ne le suppose.
+- **Choisir des fichiers** : `MediaLibraryAction::make()->pickFor($this->getId(), many: true)`
+  ouvre la bibliothèque pour choisir, au profit de qui l'a ouverte. Un seul
+  fichier attendu, un clic sur une carte le choisit ; plusieurs, un clic coche,
+  et « Insérer la sélection » les envoie. Rien ne s'y glisse. Les fichiers sont
+  annoncés par l'événement `MediaLibraryTable::PICKED_EVENT` (`picker`,
+  `media`) : à qui les attend de les prendre et de fermer la fenêtre (c'est ce
+  que fait `TagImagesPanel` quand sa bibliothèque s'ouvre en fenêtre).
 - **Version légère** : `TagImagesPanel` est un composant Livewire à glisser
   dans l'écran d'un contenu (une journée, une introduction) : les images qui
   portent ses tags, un envoi qui les étiquette d'emblée, et un accès à la
@@ -314,7 +326,7 @@ période, par exemple).
 
 ### Fenêtre d'édition
 
-Un clic sur une carte ouvre une fenêtre large : un bandeau (nom, légende, texte
+Le crayon d'une carte ouvre une fenêtre large : un bandeau (nom, légende, texte
 alternatif, date, position, tags, coupe d'une vidéo) et l'aperçu. Enregistrer sans
 toucher à la date la laisse intacte (`date_source` inchangé) ; la modifier la marque
 `manual`. La fenêtre permet aussi de supprimer le média, après confirmation.

@@ -9,6 +9,9 @@
     $chip = 'flex items-center gap-0.5 rounded-full bg-black/55 text-white shadow backdrop-blur-sm';
     $icon = $small ? 'h-3 w-3' : 'h-4 w-4';
     $pad = $small ? 'p-1' : 'p-1.5';
+    // Ouverte pour choisir des fichiers (voir MediaLibraryTable::$picker) : `one`, un clic choisit ; `many`, il coche.
+    $pick ??= null;
+    $draggable = $pick === null;
 @endphp
 
 {{--
@@ -17,24 +20,62 @@
     rapport à la carte elle-même (`fi-ta-record`, qui est `relative`). Elle
     donne sa hauteur à la carte, avec un carré de la largeur du contenu.
 
-    Toute la carte se glisse : déposée dans la case de fin du panneau d'images d'une
-    période, l'image s'y ajoute ; déposée dans un texte, elle y écrit sa référence
+    Un clic sur la carte la coche (ou la décoche) ; ouverte pour choisir un seul fichier, il le choisit. Un clic n'est
+    qu'un clic : si le pointeur a bougé entre l'appui et le relâché, c'est un glisser commencé, pas une sélection — on
+    peut saisir une carte cochée sans la décocher. La fiche s'ouvre par le crayon, la suppression par la poubelle : de
+    vrais boutons, qui ne cochent rien (`.stop`).
+
+    En haut à gauche, la case à cocher de Filament, posée dans une zone à elle (`data-library-select-zone`, voir la vue
+    de la table) : un clic n'importe où dans cette zone coche, même à côté de la case, et ne choisit jamais le fichier.
+    Ni la zone ni les boutons ne lancent de glisser (`data-library-no-grab`).
+
+    Le reste de la carte se glisse (sauf ouverte pour choisir : celui qui attend est sous la fenêtre) : déposée dans la
+    case de fin du panneau d'images d'une période, l'image s'y ajoute ; déposée dans un texte, elle y écrit sa référence
     « (image N) » et s'ajoute aussi à la période (voir LibraryImages::DRAG_TYPE). Le
     glisser porte la clé de chaque fichier glissé, sa nature (image ou vidéo) et celle du voyage, au format JSON — et
     plusieurs quand la carte est cochée avec d'autres : on les glisse toutes ensemble. Le glisser ne montre pas la carte
     mais une petite étiquette (son nom, ou son numéro dans la période), qui laisse voir où l'on vise.
 
-    Toute la carte ouvre la fiche : le crayon n'est qu'un repère. La poubelle,
-    elle, est un vrai bouton : `.stop` l'empêche d'ouvrir aussi la fiche. En
-    petit format il n'y a pas de texte : tags et position se lisent en icônes.
+    En petit format il n'y a pas de texte : tags et position se lisent en icônes.
 --}}
 <div
-    class="group aspect-square w-full cursor-grab active:cursor-grabbing"
+    class="group aspect-square w-full cursor-pointer {{ $draggable ? 'active:cursor-grabbing' : '' }}"
     data-library-card="{{ $key }}"
     data-library-kind="{{ $media->kind() }}"
     data-library-name="{{ $media->name }}"
-    draggable="true"
+    role="button"
+    tabindex="0"
+    aria-label="{{ $pick === 'one' ? 'Choisir' : 'Cocher' }} : {{ $media->name }}"
+    draggable="{{ $draggable ? 'true' : 'false' }}"
+    x-data="{ full: false, pressed: null }"
+    x-on:pointerdown="pressed = {
+        x: $event.clientX,
+        y: $event.clientY,
+        noGrab: $event.target.closest('[data-library-no-grab]') !== null,
+    }"
+    x-on:click="
+        // Le pointeur a bougé depuis l'appui : un glisser (même avorté), pas un clic.
+        if (pressed && Math.hypot($event.clientX - pressed.x, $event.clientY - pressed.y) > 5) {
+            return
+        }
+
+        @if ($pick === 'one')
+            $wire.pick({{ $key }})
+        @else
+            toggleSelectedRecord('{{ $key }}')
+        @endif
+    "
+    x-on:keydown.enter.self.prevent="pressed = null; $el.click()"
+    x-on:keydown.space.self.prevent="pressed = null; $el.click()"
+    @if ($draggable)
     x-on:dragstart="
+        // Saisie par la zone de la case ou par un bouton : rien ne se glisse.
+        if (pressed?.noGrab) {
+            $event.preventDefault()
+
+            return
+        }
+
         $event.dataTransfer.effectAllowed = 'copy'
 
         // Une carte cochée entraîne toutes les cochées, dans l'ordre où on les a cochées ; sinon, elle seule.
@@ -49,11 +90,20 @@
         // Une petite étiquette plutôt que la carte : on voit le pointeur et où l'on vise (voir library-drag.js).
         window.libraryDragGhost?.($event.dataTransfer, items)
     "
+    @endif
     @unless ($fit)
-        x-data="{ full: false }"
         x-on:mouseenter.once="full = true"
     @endunless
 >
+    {{-- La zone de la case à cocher : la case de Filament y est posée (voir la vue de la table), un clic à côté coche aussi. --}}
+    <span
+        data-library-select-zone
+        data-library-no-grab
+        aria-hidden="true"
+        x-on:click.stop="toggleSelectedRecord('{{ $key }}')"
+        class="absolute left-0 top-0 z-[5] cursor-pointer rounded-br-xl rounded-tl-xl bg-black/0 transition hover:bg-black/25 {{ $small ? 'size-8' : 'size-10' }}"
+    ></span>
+
     @if ($media->isPlayable())
         {{--
             Une vidéo, locale ou YouTube : ni recadrage ni image entière au survol, elle se montre entière, sur fond
@@ -141,12 +191,12 @@
     ></span>
 
     {{--
-        En haut à gauche, en colonne : d'où vient le fichier (YouTube ou image externe, sinon rien — un envoi
+        À gauche, en colonne, sous la case à cocher : d'où vient le fichier (YouTube ou image externe, sinon rien — un envoi
         classique n'a pas besoin de le dire), le nombre de tags (petit format seulement, les autres formats
         nomment leurs tags), puis la marque de chaque action de l'application qui concerne cette image (l'étoile
         d'une image d'en-tête, par exemple), avec son libellé au survol.
     --}}
-    <div class="pointer-events-none absolute flex flex-col items-start gap-1 {{ $small ? 'left-1.5 top-1.5' : 'left-2 top-2' }}">
+    <div class="pointer-events-none absolute flex flex-col items-start gap-1 {{ $small ? 'left-1.5 top-9' : 'left-2 top-12' }}">
         @if ($media->isYoutube())
             <span
                 data-library-origin-mark="youtube"
@@ -250,10 +300,18 @@
         </span>
     @endif
 
-    {{-- Le crayon (repère) puis la poubelle (bouton), en colonne dans le coin. --}}
-    <div class="pointer-events-none absolute flex flex-col gap-1 {{ $small ? 'right-1.5 top-1.5' : 'right-2 top-2' }}">
+    {{-- Le crayon puis la poubelle, deux boutons en colonne dans le coin : ils ne cochent rien et ne se glissent pas. --}}
+    <div class="pointer-events-none absolute z-[5] flex flex-col gap-1 {{ $small ? 'right-1.5 top-1.5' : 'right-2 top-2' }}">
         {{-- Sans le droit de modifier, la fiche s'ouvre en lecture : un œil plutôt qu'un crayon. --}}
-        <span data-library-edit-mark class="{{ $chip }} {{ $pad }}">
+        <span
+            role="button"
+            data-library-edit-mark
+            data-library-no-grab
+            aria-label="{{ ($canEdit ?? true) ? 'Modifier' : 'Voir' }}"
+            x-tooltip="{ content: @js(($canEdit ?? true) ? 'Modifier' : 'Voir'), theme: $store.theme }"
+            wire:click.stop="mountTableAction('edit', '{{ $key }}')"
+            class="{{ $chip }} {{ $pad }} pointer-events-auto cursor-pointer transition hover:bg-primary-600"
+        >
             <x-filament::icon :icon="($canEdit ?? true) ? 'heroicon-m-pencil-square' : 'heroicon-m-eye'" class="{{ $icon }}" />
         </span>
 
@@ -261,6 +319,7 @@
         <span
             role="button"
             data-library-delete-mark
+            data-library-no-grab
             aria-label="Supprimer cette image"
             x-tooltip="{ content: 'Supprimer', theme: $store.theme }"
             wire:click.stop="mountTableAction('deleteImage', '{{ $key }}')"

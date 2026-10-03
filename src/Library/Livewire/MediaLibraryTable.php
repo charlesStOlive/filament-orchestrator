@@ -62,6 +62,15 @@ use Livewire\Attributes\Session;
  * slide-over ou une page (voir MediaLibraryAction). Il ne sait rien des
  * journées d'un voyage — les tags qu'il manipule sont opaques, et leur
  * libellé vient des LibraryTagLabeler configurés.
+ *
+ * Aujourd'hui, seul l'éditeur de voyage de l'application s'en sert (volet,
+ * fenêtres des panneaux d'images, configuration de départ) ; rien ici ne
+ * doit le supposer. Ouverte pour choisir des fichiers (`$picker`), elle les
+ * annonce par événement à qui les attend, quel qu'il soit.
+ *
+ * Une carte : un clic la coche (ou la choisit, quand un seul fichier est
+ * attendu), le crayon ouvre sa fiche, et elle se glisse (sauf ouverte pour
+ * choisir) — voir library/thumbnail.
  */
 class MediaLibraryTable extends TableComponent
 {
@@ -96,6 +105,27 @@ class MediaLibraryTable extends TableComponent
      */
     #[Locked]
     public array $contextFilters = [];
+
+    /**
+     * Ouverte pour choisir des fichiers (en fenêtre, par exemple, depuis un champ qui en attend), le nom de qui les
+     * attend : la bibliothèque les lui annonce par PICKED_EVENT, sans savoir ce qu'il en fait. Null : la bibliothèque
+     * seule, où un clic sur une carte la coche.
+     *
+     * Un seul fichier attendu, un clic sur une carte le choisit aussitôt (la case à cocher reste, pour les actions par
+     * lot) ; plusieurs (`$pickMany`), un clic coche, et « Insérer la sélection » les envoie. On ne glisse rien : celui
+     * qui attend est sous la fenêtre.
+     */
+    #[Locked]
+    public ?string $picker = null;
+
+    #[Locked]
+    public bool $pickMany = false;
+
+    /**
+     * Des fichiers choisis dans une bibliothèque ouverte pour cela (voir `$picker`) : `picker` (le nom donné à
+     * l'ouverture) et `media` (leurs clés, dans l'ordre où on les a cochés). Celui qui les attend écoute cet événement.
+     */
+    public const PICKED_EVENT = 'library-media-picked';
 
     /**
      * La taille des vignettes : S, M ou L. Gardée dans la session de
@@ -141,11 +171,13 @@ class MediaLibraryTable extends TableComponent
      * c'est ce qui en fait le sélecteur d'une sorte d'images — des croquis, par exemple —, sans qu'elle sache laquelle.
      * `$filterDates` (`['from' => 'Y-m-d', 'until' => 'Y-m-d']`) la filtre de même sur la date de prise de vue.
      *
+     * `$picker` et `$pickMany` l'ouvrent pour choisir un ou plusieurs fichiers (voir `$picker`).
+     *
      * @param  array<int, string>  $focusTags
      * @param  array<int, string>  $filterTags
      * @param  array{from?: ?string, until?: ?string}  $filterDates
      */
-    public static function component(Orchestration $orchestration, array $focusTags = [], bool $followsSidePane = false, array $filterTags = [], array $filterDates = []): Livewire
+    public static function component(Orchestration $orchestration, array $focusTags = [], bool $followsSidePane = false, array $filterTags = [], array $filterDates = [], ?string $picker = null, bool $pickMany = false): Livewire
     {
         return Livewire::make(static::class, [
             'orchestrationId' => $orchestration->getKey(),
@@ -153,9 +185,11 @@ class MediaLibraryTable extends TableComponent
             'followsSidePane' => $followsSidePane,
             'filterTags' => $filterTags,
             'filterDates' => $filterDates,
+            'picker' => $picker,
+            'pickMany' => $pickMany,
         ])->key($followsSidePane
             ? 'media-library-pane-'.$orchestration->getKey()
-            : 'media-library-'.$orchestration->getKey().'-'.md5(implode('|', $focusTags).'#'.implode('|', $filterTags)));
+            : 'media-library-'.$orchestration->getKey().'-'.md5(implode('|', $focusTags).'#'.implode('|', $filterTags).'#'.$picker.($pickMany ? '+' : '')));
     }
 
     /**
@@ -163,11 +197,13 @@ class MediaLibraryTable extends TableComponent
      * @param  array<int, string>  $filterTags
      * @param  array{from?: ?string, until?: ?string}  $filterDates
      */
-    public function mount(int $orchestrationId, array $focusTags = [], bool $followsSidePane = false, array $filterTags = [], array $filterDates = []): void
+    public function mount(int $orchestrationId, array $focusTags = [], bool $followsSidePane = false, array $filterTags = [], array $filterDates = [], ?string $picker = null, bool $pickMany = false): void
     {
         $this->orchestrationId = $orchestrationId;
         $this->focusTags = array_values(array_filter($focusTags, 'is_string'));
         $this->followsSidePane = $followsSidePane;
+        $this->picker = filled($picker) ? $picker : null;
+        $this->pickMany = $this->picker !== null && $pickMany;
 
         // Posés avant que la table ne démarre : Filament remplit le formulaire des filtres avec cet état (voir
         // InteractsWithTable::bootedInteractsWithTable), comme si on l'avait choisi à la main.
@@ -283,6 +319,29 @@ class MediaLibraryTable extends TableComponent
         abort_unless(auth()->check(), 403);
     }
 
+    /**
+     * Annonce les fichiers choisis à qui a ouvert la bibliothèque pour cela (PICKED_EVENT), dans l'ordre donné : le clic
+     * sur une carte quand un seul est attendu, « Insérer la sélection » sinon. Une clé étrangère à ce voyage est ignorée.
+     *
+     * @param  int|string|array<int, int|string>  $media
+     */
+    public function pick(int|string|array $media): void
+    {
+        if ($this->picker === null) {
+            return;
+        }
+
+        $wanted = array_values(array_unique(array_map('intval', (array) $media)));
+        $known = $this->orchestration->libraryMedia()->whereKey($wanted)->pluck('id')->map('intval')->all();
+        $ids = array_values(array_filter($wanted, fn (int $id): bool => in_array($id, $known, true)));
+
+        if ($ids === []) {
+            return;
+        }
+
+        $this->dispatch(self::PICKED_EVENT, picker: $this->picker, media: $ids);
+    }
+
     /** Un envoi terminé ailleurs : le simple fait de recevoir l'événement rafraîchit la grille. */
     #[On(MediaUploadAction::UPDATED_EVENT)]
     public function refreshLibrary(): void {}
@@ -370,6 +429,7 @@ class MediaLibraryTable extends TableComponent
                             'marks' => $this->marksOf($record),
                             'canEdit' => $this->allows('edit'),
                             'canDelete' => $this->allows('delete'),
+                            'pick' => $this->pickMode(),
                         ]),
                     // Ne dessine rien : elle est là pour que « Trier par » propose le type (images, puis vidéos).
                     ViewColumn::make('mime_type')
@@ -409,10 +469,12 @@ class MediaLibraryTable extends TableComponent
                 $this->zoneGroup('zone_fine', 'Zone (environ 1 km)', 2),
                 $this->zoneGroup('zone_large', 'Zone (environ 10 km)', 1),
             ])
+            // Pas d'action de carte (`recordAction`) : un clic sur une carte la coche — ou la choisit, quand la
+            // bibliothèque est ouverte pour un seul fichier — et c'est le crayon qui ouvre sa fiche (library/thumbnail).
             ->recordActions([$this->editAction(), $this->deleteImageAction()])
-            ->recordAction('edit')
             ->selectable()
             ->toolbarActions([
+                ...$this->pickActions(),
                 MediaUploadAction::make('upload')
                     ->authorize(fn (): bool => $this->allows('upload'))
                     ->record($this->orchestration)
@@ -432,7 +494,42 @@ class MediaLibraryTable extends TableComponent
 
     public function render(): View
     {
-        return view('filament-orchestrator::livewire.media-library-table');
+        return view('filament-orchestrator::livewire.media-library-table', ['small' => $this->currentSize() === 's']);
+    }
+
+    /** Ce que fait un clic sur une carte : `one` la choisit, `many` ou null (la bibliothèque seule) la coche. */
+    private function pickMode(): ?string
+    {
+        return match (true) {
+            $this->picker === null => null,
+            $this->pickMany => 'many',
+            default => 'one',
+        };
+    }
+
+    /**
+     * Ouverte pour choisir plusieurs fichiers : « Insérer la sélection », en tête de la barre d'outils, les envoie à qui
+     * les attend (voir pick()), dans l'ordre où on les a cochés.
+     *
+     * @return array<int, Action>
+     */
+    private function pickActions(): array
+    {
+        if ($this->pickMode() !== 'many') {
+            return [];
+        }
+
+        return [
+            $this->selectionAction('pickSelection')
+                ->label('Insérer la sélection')
+                ->icon('heroicon-m-check-circle')
+                ->button()
+                ->color('primary')
+                ->size(Size::Small)
+                ->extraAttributes(['data-library-shortcut' => 'pick-selection'], merge: true)
+                // L'ordre des cases cochées (`selectedTableRecords`) ; après « Tout sélectionner », celui de la grille.
+                ->action(fn (Collection $selectedRecords) => $this->pick($this->isTrackingDeselectedTableRecords ? $selectedRecords->modelKeys() : $this->selectedTableRecords)),
+        ];
     }
 
     /*
@@ -735,7 +832,7 @@ class MediaLibraryTable extends TableComponent
     }
 
     /**
-     * La fenêtre d'édition d'une image ou d'une vidéo, ouverte par un clic sur sa carte : très large, en deux parties. À
+     * La fenêtre d'édition d'une image ou d'une vidéo, ouverte par le crayon de sa carte : très large, en deux parties. À
      * gauche (un cinquième) ce qu'on édite — nom, légende, texte alternatif, date, position, tags, et la coupe d'une
      * vidéo — et ce que le serveur sait du fichier ; à droite (quatre cinquièmes) l'image entière, ou la vidéo et son
      * lecteur.
@@ -745,10 +842,9 @@ class MediaLibraryTable extends TableComponent
         return Action::make('edit')
             ->label('Modifier')
             ->icon('heroicon-o-pencil-square')
-            // Toute la carte ouvre cette action, et le crayon est posé sur
-            // l'image (library/thumbnail) : le bouton lui-même n'est pas
-            // affiché. Il doit rester dans le DOM, Filament n'ouvre pas une
-            // action masquée.
+            // Le crayon posé sur l'image (library/thumbnail) ouvre cette action :
+            // le bouton lui-même n'est pas affiché. Il doit rester dans le DOM,
+            // Filament n'ouvre pas une action masquée.
             ->extraAttributes(['class' => 'hidden'])
             ->modalHeading(fn (LibraryMedia $record): string => match (true) {
                 $record->isYoutube() => 'Modifier la vidéo YouTube',

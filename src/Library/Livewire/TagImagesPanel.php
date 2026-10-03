@@ -242,14 +242,16 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
      * Dans un ensemble d'une seule image (l'image de « une »), seul le premier fichier compte, et une vidéo n'est pas
      * une image : elle est refusée.
      *
+     * Faux quand rien n'est pris : aucun fichier, ou une vidéo pour une image (le panneau le dit).
+     *
      * @param  int|array<int, int|string>  $media  Une clé, ou la liste de celles qu'on a glissées.
      */
-    public function attachMedia(int|array $media): void
+    public function attachMedia(int|array $media): bool
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) $media), fn (int $id): bool => $id > 0)));
 
         if ($this->tags === [] || $ids === []) {
-            return;
+            return false;
         }
 
         $images = new LibraryImages;
@@ -258,14 +260,18 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         if ($this->single) {
             $image = $this->orchestration->libraryMedia()->find($ids[0]);
 
-            // Une couverture est une image : une vidéo n'a pas de vignette.
-            if ($image?->isVideo()) {
-                Notification::make()->warning()->title('L’image de une doit être une image, pas une vidéo')->send();
-
-                return;
+            if ($image === null) {
+                return false;
             }
 
-            if ($image !== null && ! $images->tagged($this->orchestration, $this->tags)->first()?->is($image)) {
+            // Une couverture est une image : une vidéo n'a pas de vignette.
+            if ($image->isVideo()) {
+                Notification::make()->warning()->title('L’image de une doit être une image, pas une vidéo')->send();
+
+                return false;
+            }
+
+            if (! $images->tagged($this->orchestration, $this->tags)->first()?->is($image)) {
                 $images->replace($this->orchestration, $this->tags, $image);
                 $changed = true;
             }
@@ -281,6 +287,27 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
 
         if ($changed) {
             $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
+        }
+
+        return true;
+    }
+
+    /**
+     * Des fichiers choisis dans la bibliothèque que ce panneau a ouverte en fenêtre (voir libraryAction()) : ils le
+     * rejoignent comme s'ils y avaient été glissés, puis la fenêtre se ferme. Refusés (une vidéo pour une image de
+     * « une »), la fenêtre reste ouverte, pour en choisir un autre.
+     *
+     * @param  array<int, int|string>  $media
+     */
+    #[On(MediaLibraryTable::PICKED_EVENT)]
+    public function picked(string $picker, array $media): void
+    {
+        if ($picker !== $this->getId()) {
+            return;
+        }
+
+        if ($this->attachMedia($media)) {
+            $this->unmountAction();
         }
     }
 
@@ -317,10 +344,13 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
                 ->outlined();
         }
 
+        // En fenêtre, la bibliothèque sert à choisir pour ce panneau (voir picked()) : on n'y glisse rien, la fenêtre
+        // cache le panneau.
         return MediaLibraryAction::make('library')
             ->record($this->orchestration)
             ->focusTags($this->libraryFocused ? ($this->libraryTags ?: $this->tags) : [])
             ->filterTags($this->libraryFilterTags)
+            ->pickFor($this->getId(), many: ! $this->single)
             ->label('Ouvrir la bibliothèque')
             ->size(Size::Small)
             ->outlined();
