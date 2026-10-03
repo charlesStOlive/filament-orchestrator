@@ -9,6 +9,7 @@ use CharlesStOlive\FilamentOrchestrator\Schemas\OrchestratorSchema;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\DB;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -110,6 +111,10 @@ class Orchestration extends Model implements HasMedia
      * Supprimer l'orchestration emporte ses fichiers, un à un (medialibrary). Si une garde en retient un (une version
      * publiée le montre…), rien ne part : on le vérifie pour tous avant le premier, sinon ceux d'avant seraient déjà
      * effacés quand le fichier retenu arrêterait la suppression (voir LibraryMedia).
+     *
+     * Ses nœuds partent avec elle (clé étrangère), et les modèles qui n'appartiennent qu'à elle (`owned` : ses
+     * contenus, ses hotpoints…) aussi, comme quand on retire un de ses nœuds (NodeSynchronizer). Les modèles liés
+     * (`linked`, une scène partagée…) restent.
      */
     public function delete(): ?bool
     {
@@ -121,7 +126,17 @@ class Orchestration extends Model implements HasMedia
             }
         }
 
-        return parent::delete();
+        return DB::transaction(function (): ?bool {
+            $owned = $this->nodes()->with('orchestratable')->get()
+                ->filter(fn (OrchestratorNode $node): bool => $node->isOwned() && $node->orchestratable instanceof Model)
+                ->map(fn (OrchestratorNode $node): Model => $node->orchestratable);
+
+            $deleted = parent::delete();
+
+            $owned->each(fn (Model $model) => $model->delete());
+
+            return $deleted;
+        });
     }
 
     /** Type sous lequel sont rangés les tags de cette bibliothèque : un type par orchestration. */
