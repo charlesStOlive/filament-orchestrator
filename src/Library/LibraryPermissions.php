@@ -31,8 +31,9 @@ final class LibraryPermissions
 
     /**
      * Les actions à déclarer : `library.{action}` => libellé, gestes de la bibliothèque puis actions de l'application.
+     * Une action qui a un sous-titre (`permissionGroup()`) se déclare `['label' => …, 'group' => …]`.
      *
-     * @return array<string, string>
+     * @return array<string, string|array{label: string, group: string}>
      */
     public static function actions(): array
     {
@@ -42,11 +43,13 @@ final class LibraryPermissions
             $action = app($class);
 
             if ($action instanceof LibraryAction) {
-                $actions->put($action->getName(), $action->getLabel());
+                $actions->put($action->getName(), filled($action->getPermissionGroup())
+                    ? ['label' => $action->getLabel(), 'group' => $action->getPermissionGroup()]
+                    : $action->getLabel());
             }
         }
 
-        return $actions->mapWithKeys(fn (string $label, string $name): array => [self::FAMILY.'.'.$name => $label])->all();
+        return $actions->mapWithKeys(fn (string|array $label, string $name): array => [self::FAMILY.'.'.$name => $label])->all();
     }
 
     public static function allows(Orchestration $orchestration, string $action): bool

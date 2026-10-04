@@ -66,6 +66,8 @@ abstract class LibraryAction
 
     protected ?string $modalSubmitLabel = null;
 
+    protected ?string $permissionGroup = null;
+
     final public function __construct()
     {
         $this->setUp();
@@ -131,6 +133,22 @@ abstract class LibraryAction
     public function getShortLabel(): string
     {
         return $this->shortLabel ?? $this->label;
+    }
+
+    /**
+     * Le sous-titre sous lequel son droit se range, dans la famille « Bibliothèque » de l'écran des rôles (« Intelligence
+     * artificielle » pour une demande à l'IA). Son nom ne change pas. Voir LibraryPermissions::actions().
+     */
+    public function permissionGroup(?string $group): static
+    {
+        $this->permissionGroup = $group;
+
+        return $this;
+    }
+
+    public function getPermissionGroup(): ?string
+    {
+        return $this->permissionGroup;
     }
 
     /** Ce que dit la bibliothèque quand une image cochée n'est pas de celles que l'action accepte (voir `accepts()`). */

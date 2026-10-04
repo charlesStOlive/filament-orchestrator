@@ -451,7 +451,8 @@ déclare ces actions au format de filament-permission-manager
 (`$permissionFamilies = ['library' => 'Bibliothèque']`, `permissionActions()`),
 qui en fait la famille « Bibliothèque » de l'écran des rôles
 (`{liste}.library.upload`, `….library.header`… et `{liste}.library.*` pour tout,
-y compris les actions à venir).
+y compris les actions à venir). Une action peut ranger son droit sous un sous-titre de la
+famille (`->permissionGroup('Intelligence artificielle')`) : son nom ne change pas.
 
 Sans le droit de modifier, la fiche d'une image s'ouvre en lecture (un œil sur la
 carte plutôt qu'un crayon) ; sans celui de supprimer, la poubelle disparaît. Ajouter
