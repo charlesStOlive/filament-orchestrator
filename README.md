@@ -458,6 +458,11 @@ carte plutôt qu'un crayon) ; sans celui de supprimer, la poubelle disparaît. A
 des images à une journée, les ordonner ou les retirer, c'est modifier
 l'orchestration : son droit de modification suffit.
 
+Un `TagImagesPanel` qui fait la même chose qu'une action de la bibliothèque (le
+croquis d'un carnet, son image de une) le dit par `permission: 'sketch'` : sans
+ce droit, il montre ses images sans « + », sans dépôt, sans retrait ni
+réordonnancement — le panneau ne contourne pas l'action.
+
 Une automatisation qui ajoute ses propres familles redéclare `$permissionFamilies`
 avec `library` et fusionne `parent::permissionActions()`.
 

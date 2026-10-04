@@ -60,10 +60,18 @@
         la fin (ou remplace, en mode `single`). Elle ne réagit qu'à ces images-là (pas au réordonnancement d'ici,
         qui a ses propres événements).
     --}}
-    {{-- En mode single, la case « + » suffit à dire qu'il n'y a rien : pas de phrase en plus. --}}
-    @if ($this->images->isEmpty() && ! $single)
+    {{--
+        En mode single, la case « + » suffit à dire qu'il n'y a rien : pas de phrase en plus. Sans le droit de changer
+        le panneau (`canChange`, voir `$permission`), il n'y a ni case « + », ni retrait, ni glisser-déposer : on ne fait
+        que voir.
+    --}}
+    @if ($this->images->isEmpty() && (! $single || ! $this->canChange))
         <p class="text-sm text-gray-500 dark:text-gray-400">
-            Aucune image pour l’instant. Cliquez sur « + » pour ouvrir la bibliothèque, ou glissez-en une depuis elle.
+            @if ($this->canChange)
+                Aucune image pour l’instant. Cliquez sur « + » pour ouvrir la bibliothèque, ou glissez-en une depuis elle.
+            @else
+                Aucune image pour l’instant.
+            @endif
         </p>
     @endif
 
@@ -77,7 +85,9 @@
         hors du panneau (vers le texte), la vignette ne le réordonne pas : rien n'est enregistré (`libraryPanelSortable`).
     --}}
     <div
-        @unless ($single)
+        @if ($single)
+            data-library-cover-panel
+        @elseif ($this->canChange)
             data-library-sortable
             x-sortable
             x-init="$nextTick(() => {
@@ -94,9 +104,7 @@
                 window.libraryHoldScroll?.(window.libraryScrollAtDrag ?? window.scrollY)
                 $wire.reorder($event.target.sortable.toArray())
             }"
-        @else
-            data-library-cover-panel
-        @endunless
+        @endif
         class="flex flex-wrap gap-2"
     >
         @foreach ($this->images as $media)
@@ -118,17 +126,19 @@
 
                     @include('filament-orchestrator::livewire.partials.tile-focus', ['media' => $media])
 
-                    <button
-                        type="button"
-                        wire:click="mountAction('detach', { media: {{ $media->getKey() }} })"
-                        class="absolute right-1 top-1 hidden rounded-full bg-white/90 p-0.5 text-gray-600 shadow hover:text-danger-600 group-hover:block dark:bg-gray-900/90 dark:text-gray-300"
-                        aria-label="Retirer l’image de une"
-                        title="Retirer (elle reste dans la bibliothèque)"
-                    >
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    @if ($this->canChange)
+                        <button
+                            type="button"
+                            wire:click="mountAction('detach', { media: {{ $media->getKey() }} })"
+                            class="absolute right-1 top-1 hidden rounded-full bg-white/90 p-0.5 text-gray-600 shadow hover:text-danger-600 group-hover:block dark:bg-gray-900/90 dark:text-gray-300"
+                            aria-label="Retirer l’image de une"
+                            title="Retirer (elle reste dans la bibliothèque)"
+                        >
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    @endif
                 </div>
             @else
                 <div
@@ -150,7 +160,7 @@
                         data-library-header
                         x-tooltip="{ content: 'Couverture par défaut, tant qu’aucune image de une n’est choisie', theme: $store.theme }"
                     @endif
-                    class="group relative cursor-grab rounded-lg active:cursor-grabbing {{ $media->getKey() === $this->fallbackCoverId ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : '' }}"
+                    class="group relative rounded-lg {{ $this->canChange ? 'cursor-grab active:cursor-grabbing' : '' }} {{ $media->getKey() === $this->fallbackCoverId ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : '' }}"
                 >
                     @include('filament-orchestrator::livewire.partials.tile-media', ['media' => $media])
 
@@ -168,23 +178,25 @@
 
                     @include('filament-orchestrator::livewire.partials.tile-focus', ['media' => $media])
 
-                    <button
-                        type="button"
-                        wire:click="mountAction('detach', { media: {{ $media->getKey() }} })"
-                        class="absolute right-1 top-1 hidden rounded-full bg-white/90 p-0.5 text-gray-600 shadow hover:text-danger-600 group-hover:block dark:bg-gray-900/90 dark:text-gray-300"
-                        aria-label="Retirer cette image"
-                        title="Retirer (elle reste dans la bibliothèque)"
-                    >
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    @if ($this->canChange)
+                        <button
+                            type="button"
+                            wire:click="mountAction('detach', { media: {{ $media->getKey() }} })"
+                            class="absolute right-1 top-1 hidden rounded-full bg-white/90 p-0.5 text-gray-600 shadow hover:text-danger-600 group-hover:block dark:bg-gray-900/90 dark:text-gray-300"
+                            aria-label="Retirer cette image"
+                            title="Retirer (elle reste dans la bibliothèque)"
+                        >
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    @endif
                 </div>
             @endif
         @endforeach
 
         {{-- Ni `x-sortable-item` : on ne la déplace pas, et les images se rangent avant elle. Un bouton : clic ou dépôt. --}}
-        @if ($tags !== [])
+        @if ($tags !== [] && $this->canChange)
             <button
                 type="button"
                 data-library-dropzone
@@ -215,12 +227,12 @@
     </div>
 
     @php($framable = $this->images->contains(fn ($media): bool => ! $media->isPlayable()))
-    @if ($framable || (! $single && $this->images->count() > 1))
+    @if ($framable || (! $single && $this->images->count() > 1 && $this->canChange))
         <p class="text-xs text-gray-500 dark:text-gray-400">
             @if ($framable)
                 Cliquez sur une image pour choisir son cadrage.
             @endif
-            @if (! $single && $this->images->count() > 1)
+            @if (! $single && $this->images->count() > 1 && $this->canChange)
                 Glissez pour réordonner, ou dans le texte pour y écrire une référence.
             @endif
             @if ($this->fallbackCoverId !== null)

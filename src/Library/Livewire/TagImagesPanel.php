@@ -7,6 +7,7 @@ use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaLibrarySidePane;
 use CharlesStOlive\FilamentOrchestrator\Library\Filament\MediaUploadAction;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryImageEvent;
 use CharlesStOlive\FilamentOrchestrator\Library\LibraryImages;
+use CharlesStOlive\FilamentOrchestrator\Library\LibraryPermissions;
 use CharlesStOlive\FilamentOrchestrator\Models\LibraryMedia;
 use CharlesStOlive\FilamentOrchestrator\Models\Orchestration;
 use CharlesStOlive\FilamentUi\Split\SidePaneEvent;
@@ -100,6 +101,14 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     public array $libraryFilterTags = [];
 
     /**
+     * L'action de la bibliothèque (son nom, voir LibraryPermissions) qui fait la même chose que ce panneau : `sketch`
+     * pour le croquis d'un carnet, par exemple. Le panneau en demande alors le droit pour changer ses images — sans
+     * lui, il les montre sans « + », sans dépôt, sans retrait ni réordonnancement. Null : modifier l'orchestration suffit.
+     */
+    #[Locked]
+    public ?string $permission = null;
+
+    /**
      * L'identifiant d'une page d'aide de la base de connaissances (Guava), que le « ? » du titre ouvre dans une fenêtre :
      * un simple lien « #modal-… », que l'extension de la base intercepte dans le panneau. Sans elle, il ne mène nulle part.
      */
@@ -133,6 +142,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         bool $helpFullTitle = false,
         bool $libraryFocused = true,
         array $libraryFilterTags = [],
+        ?string $permission = null,
     ): void {
         $this->orchestrationId = $orchestrationId;
         $this->tags = array_values(array_filter($tags, 'is_string'));
@@ -146,6 +156,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
         $this->helpFullTitle = $helpFullTitle;
         $this->libraryFocused = $libraryFocused;
         $this->libraryFilterTags = array_values(array_filter($libraryFilterTags, 'is_string'));
+        $this->permission = $permission;
 
         // Échoue tôt (404) plutôt qu'à l'affichage.
         $this->orchestration();
@@ -170,6 +181,13 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     public function orchestration(): Orchestration
     {
         return Orchestration::query()->findOrFail($this->orchestrationId);
+    }
+
+    /** Vrai si l'on peut changer les images du panneau : voir `$permission`. */
+    #[Computed]
+    public function canChange(): bool
+    {
+        return $this->permission === null || LibraryPermissions::allows($this->orchestration, $this->permission);
     }
 
     /** @return Collection<int, LibraryMedia> */
@@ -229,6 +247,10 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
      */
     public function reorder(array $ids): void
     {
+        if (! $this->canChange) {
+            return;
+        }
+
         (new LibraryImages)->reorder($this->orchestration, $this->tags, $ids);
 
         $this->dispatch(MediaUploadAction::UPDATED_EVENT, orchestrationId: $this->orchestrationId);
@@ -250,7 +272,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) $media), fn (int $id): bool => $id > 0)));
 
-        if ($this->tags === [] || $ids === []) {
+        if ($this->tags === [] || $ids === [] || ! $this->canChange) {
             return false;
         }
 
@@ -340,6 +362,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
                         'filterTags' => $this->libraryFilterTags,
                     ]),
                 ))
+                ->authorize(fn (): bool => $this->canChange)
                 ->size(Size::Small)
                 ->outlined();
         }
@@ -352,6 +375,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
             ->filterTags($this->libraryFilterTags)
             ->pickFor($this->getId(), many: ! $this->single)
             ->label('Ouvrir la bibliothèque')
+            ->authorize(fn (): bool => $this->canChange)
             ->size(Size::Small)
             ->outlined();
     }
@@ -406,6 +430,7 @@ class TagImagesPanel extends Component implements HasActions, HasSchemas
     {
         return Action::make('detach')
             ->label('Retirer de la sélection')
+            ->authorize(fn (): bool => $this->canChange)
             ->action(function (array $arguments): void {
                 $media = $this->orchestration->libraryMedia()->findOrFail($arguments['media'] ?? 0);
 
